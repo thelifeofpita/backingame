@@ -461,6 +461,8 @@
         bloom: L.bloom * (1 - ease * 0.85),
         gain: lerp(L.gain, 1.0, ease),
         sat: lerp(L.sat, 0.99, ease),
+        panel: L.panel,
+        grille: L.grille * (1 - ease * 0.45),
         lines: Math.round(this.cam.h / 3),
         reduce: this.reduce,
         flash: this.flash,

@@ -47,10 +47,14 @@ Everything on screen is either a reversing camera, a car park, or PlatanoMelón.
 - **The guide lines are calibrated, not decorative.** They are drawn on the ground
   plane from the car's actual steering angle, so they bend as you tilt and stop
   where the wall is. Red bar at half a metre, yellow to 1.75 m, green beyond.
-- **The lens is applied last.** The scene is rendered flat and cheap (760 px wide,
-  flat grey, auto-gain), then a WebGL pass adds the barrel distortion, chromatic
-  fringing, scan lines, the LCD's RGB stripe and the sensor grain — the moiré you
-  get photographing a dashboard, which is exactly what the mockups are.
+- **The lens is applied last, and so is the screen.** The scene renders flat and
+  cheap, then one pass adds the barrel distortion, chromatic fringing and sensor
+  grain — and then the display itself: the picture is snapped to a 336-pixel-wide
+  panel grid, with the dark lattice between pixels and the red-green-blue stripe
+  drawn at two deliberately different frequencies. Beating them together is what
+  makes a photographed screen look like a photographed screen, which is exactly
+  what the mockups are. The grille eases off on the payoff so the artwork lands
+  clean.
 - **Reverse chevrons** mark the target bay on the floor and reappear as the tilt
   indicator in the how-to diagram.
 - **The poster is framed by where you park, not by a camera trick.** That is the

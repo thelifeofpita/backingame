@@ -404,6 +404,8 @@
         bloom: LK.bloom * (1 - ease * 0.85),
         gain: lerp(LK.gain, 1, ease),
         sat: lerp(LK.sat, 0.99, ease),
+        panel: LK.panel,
+        grille: LK.grille * (1 - ease * 0.45),
         lines: Math.round(this.feedCv.height / 3),
         reduce: false,
         flash: this.flash,
