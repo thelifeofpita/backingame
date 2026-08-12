@@ -50,11 +50,14 @@ Everything on screen is either a reversing camera, a car park, or PlatanoMelón.
 - **The lens is applied last, and so is the screen.** The scene renders flat and
   cheap, then one pass adds the barrel distortion, chromatic fringing and sensor
   grain — and then the display itself: the picture is snapped to a 336-pixel-wide
-  panel grid, with the dark lattice between pixels and the red-green-blue stripe
-  drawn at two deliberately different frequencies. The barrel distortion is a
-  proper wide-angle bow, and the colour fringing has two parts: a cubic term
-  that shows at the corners the way lateral aberration does, and a linear
-  per-channel scale that keeps it visible across the middle of the frame. Beating them together is what
+  panel grid — and that grid is indexed by the *lens-mapped* coordinate, so the
+  pixels bow with the picture and pack tighter towards the edges rather than
+  sitting on top as a flat mesh. The colour fringing is measured in whole panel
+  pixels, because snapping the sample to pixel centres quantises away anything
+  smaller than a texel, which is what made an earlier version invisible. How
+  much of the matrix gets drawn depends on how many output pixels a panel pixel
+  covers, measured per fragment: draw it where it can be resolved, fade it where
+  it cannot, or it aliases into a diagonal weave. Beating them together is what
   makes a photographed screen look like a photographed screen, which is exactly
   what the mockups are. The grille eases off on the payoff so the artwork lands
   clean.

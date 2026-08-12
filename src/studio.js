@@ -398,7 +398,6 @@
         time: t,
         k1: LK.k1 * (1 - ease * 0.55), k2: LK.k2 * (1 - ease * 0.55),
         chroma: LK.chroma * (1 - ease * 0.55),
-        chromaScale: LK.chromaScale * (1 - ease * 0.55),
         scan: LK.scan * (1 - ease * 0.62),
         grain: LK.grain * (1 - ease * 0.55),
         vignette: LK.vignette * (1 - ease * 0.45),

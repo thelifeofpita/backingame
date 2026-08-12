@@ -455,7 +455,6 @@
         time: this.time,
         k1: L.k1 * (1 - ease * 0.55), k2: L.k2 * (1 - ease * 0.55),
         chroma: L.chroma * (1 - ease * 0.55),
-        chromaScale: L.chromaScale * (1 - ease * 0.55),
         scan: L.scan * (1 - ease * 0.62),
         grain: L.grain * (1 - ease * 0.55),
         vignette: L.vignette * (1 - ease * 0.45),

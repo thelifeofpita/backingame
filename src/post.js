@@ -14,6 +14,7 @@
   `;
 
   const FRAG = `
+    #extension GL_OES_standard_derivatives : enable
     precision highp float;
     varying vec2 vUv;
     uniform sampler2D uTex;
@@ -24,7 +25,7 @@
     uniform float uTime;
     uniform float uAspect;
     uniform float uK1, uK2, uFit;
-    uniform float uChroma, uChromaScale, uScan, uGrain, uVig, uBloom, uGain, uSat;
+    uniform float uChroma, uScan, uGrain, uVig, uBloom, uGain, uSat;
     uniform vec2  uPanel;     // the display's own pixel grid
     uniform float uGrille;    // how hard the RGB matrix shows through
     uniform float uLines;
@@ -41,6 +42,7 @@
       return p * s * (1.0 + (uK1 + k) * r2 + uK2 * r2 * r2);
     }
     vec2 toUv(vec2 p){ return (p * uFit) / vec2(uAspect, 1.0) + 0.5; }
+    #define SNAP(uv) ((floor((uv) * uPanel) + 0.5) / uPanel)
 
     void main(){
       // --- the panel: a rounded rectangle of glass sat in the dashboard ---
@@ -56,27 +58,26 @@
       }
 
       vec2 luv = (vUv - uRMin) / (uRMax - uRMin);
-
-      /* This is a cheap LCD in a dashboard, not a framebuffer. Snap the sample
-         to the panel's own pixel centres so the picture is genuinely built out
-         of pixels, then draw the matrix over the top. */
-      vec2 cell = luv * uPanel;
-      vec2 snapped = (floor(cell) + 0.5) / uPanel;
-
-      vec2 p = (snapped - 0.5) * vec2(uAspect, 1.0);
+      vec2 p = (luv - 0.5) * vec2(uAspect, 1.0);
       float r2 = dot(p, p);
 
-      // --- lens + chromatic aberration ----------------------------------
+      /* The panel grid belongs to the picture, not to the output: index it by
+         the lens-mapped coordinate and the pixels bow with everything else,
+         packing tighter towards the edges the way a wide lens squeezes them. */
       vec2 uvG = toUv(lens(p, 0.0, 1.0));
-      float ca = uChroma * (0.6 + r2 * 3.0);
-      float cs = uChromaScale;
-      vec2 uvR = toUv(lens(p, ca, 1.0 + cs));
-      vec2 uvB = toUv(lens(p, -ca, 1.0 - cs));
+      vec2 cell = uvG * uPanel;
+      vec2 texel = 1.0 / uPanel;
+
+      /* Colour fringing has to be measured in whole panel pixels. Snapping the
+         sample to pixel centres quantises away any offset smaller than a
+         texel, which is what made the aberration vanish once the grid arrived. */
+      vec2 dir = r2 > 1e-7 ? normalize(p / vec2(uAspect, 1.0)) : vec2(0.0);
+      vec2 off = dir * texel * (uChroma * (0.75 + r2 * 2.4));
 
       vec3 col;
-      col.r = texture2D(uTex, clamp(uvR, 0.001, 0.999)).r;
-      col.g = texture2D(uTex, clamp(uvG, 0.001, 0.999)).g;
-      col.b = texture2D(uTex, clamp(uvB, 0.001, 0.999)).b;
+      col.r = texture2D(uTex, clamp(SNAP(uvG + off), 0.001, 0.999)).r;
+      col.g = texture2D(uTex, clamp(SNAP(uvG), 0.001, 0.999)).g;
+      col.b = texture2D(uTex, clamp(SNAP(uvG - off), 0.001, 0.999)).b;
 
       // --- bloom: strip lights blooming into a cheap sensor -------------
       /* Only genuine light sources are allowed to bloom. Keying off the
@@ -109,19 +110,28 @@
       /* Two different frequencies, and they have to stay separate or they
          beat against each other into a mesh: the lattice belongs to the panel,
          the red-green-blue stripe to the camera looking at it. */
+      /* How many output pixels one panel pixel covers here. The lens squeezes
+         them towards the edges, so this varies across the frame; draw only
+         what can actually be resolved or the matrix aliases into a diagonal
+         weave instead of a grid. */
+      float cellPx = 1.0 / max(fwidth(cell.x), 1e-5);
+      float latAmt = smoothstep(1.1, 2.4, cellPx) * uGrille;
+      float subAmt = smoothstep(3.0, 6.0, cellPx) * uGrille;
+
       vec2 f = fract(cell);
-      float gx = smoothstep(0.0, 0.30, f.x) * smoothstep(1.0, 0.70, f.x);
-      float gy = smoothstep(0.0, 0.26, f.y) * smoothstep(1.0, 0.74, f.y);
-      float door = mix(1.0, 0.52 + 0.48 * (0.35 + 0.65 * gx) * gy, uGrille);
-      float sub = mod(gl_FragCoord.x, 3.0);
-      vec3 stripe = vec3(sub < 1.0 ? 1.0 : 0.72,
-                         (sub >= 1.0 && sub < 2.0) ? 1.0 : 0.72,
-                         sub >= 2.0 ? 1.0 : 0.72);
-      vec3 matrix = mix(vec3(1.0), stripe, uGrille) * door;
+      float gx = 0.5 - 0.5 * cos(f.x * 6.2831853);
+      float gy = 0.5 - 0.5 * cos(f.y * 6.2831853);
+      float door = mix(1.0, 0.40 + 0.60 * gx * gy, latAmt);
+      // three subpixels to a pixel, but only where they fit
+      float sub = floor(f.x * 3.0);
+      vec3 stripe = vec3(sub < 1.0 ? 1.0 : 0.66,
+                         (sub >= 1.0 && sub < 2.0) ? 1.0 : 0.66,
+                         sub >= 2.0 ? 1.0 : 0.66);
+      vec3 matrix = mix(vec3(1.0), stripe, subAmt) * door;
       float scan = sin(cell.y * 3.14159265);
       matrix *= mix(1.0, 0.92 + 0.08 * scan * scan, uScan);
       col *= matrix;
-      col *= 1.0 + uGrille * 0.42;     // give back what the lattice took
+      col *= 1.0 + latAmt * 0.46 + subAmt * 0.18;   // give back what it took
       // slow rolling refresh bar
       col *= 1.0 + (1.0 - uReduce) * 0.016 * sin(luv.y * 5.0 - uTime * 0.9);
 
@@ -159,7 +169,6 @@
     gl.uniform1f(U.uAspect, aspect);
     gl.uniform1f(U.uK1, prm.k1); gl.uniform1f(U.uK2, prm.k2); gl.uniform1f(U.uFit, fit);
     gl.uniform1f(U.uChroma, prm.chroma);
-    gl.uniform1f(U.uChromaScale, prm.chromaScale === undefined ? 0 : prm.chromaScale);
     gl.uniform1f(U.uScan, prm.scan);
     gl.uniform1f(U.uGrain, prm.grain);
     gl.uniform1f(U.uVig, prm.vignette);
@@ -321,16 +330,15 @@
   /* ---- the look, in one place ------------------------------------------- */
   const LOOK = {
     k1: 0.52, k2: 0.20,      // a proper wide-angle bow, not a hint of one
-    chroma: 0.0075,
-    chromaScale: 0.0028,     // the part that shows away from the corners
+    chroma: 1.35,            // measured in panel pixels, so it survives snapping
     scan: 0.5,
     grain: 0.05,
     vignette: 0.8,
     bloom: 0.22,
     gain: 1.03,
     sat: 0.78,
-    panel: 336,      // the display's horizontal pixel count
-    grille: 0.42,
+    panel: 432,      // the display's horizontal pixel count
+    grille: 0.5,
     lines: 240,
   };
 
