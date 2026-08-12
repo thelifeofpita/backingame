@@ -24,7 +24,7 @@
     uniform float uTime;
     uniform float uAspect;
     uniform float uK1, uK2, uFit;
-    uniform float uChroma, uScan, uGrain, uVig, uBloom, uGain, uSat;
+    uniform float uChroma, uChromaScale, uScan, uGrain, uVig, uBloom, uGain, uSat;
     uniform vec2  uPanel;     // the display's own pixel grid
     uniform float uGrille;    // how hard the RGB matrix shows through
     uniform float uLines;
@@ -33,9 +33,12 @@
 
     float hash(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
 
-    vec2 lens(vec2 p, float k){
+    /* s scales the whole channel, k bends it. The bend is cubic, so it only
+       really shows near the corners; the scale is linear, which is what puts
+       colour fringing across the middle of the frame as well. */
+    vec2 lens(vec2 p, float k, float s){
       float r2 = dot(p, p);
-      return p * (1.0 + (uK1 + k) * r2 + uK2 * r2 * r2);
+      return p * s * (1.0 + (uK1 + k) * r2 + uK2 * r2 * r2);
     }
     vec2 toUv(vec2 p){ return (p * uFit) / vec2(uAspect, 1.0) + 0.5; }
 
@@ -63,11 +66,12 @@
       vec2 p = (snapped - 0.5) * vec2(uAspect, 1.0);
       float r2 = dot(p, p);
 
-      // --- lens + lateral chromatic aberration --------------------------
-      vec2 uvG = toUv(lens(p, 0.0));
-      float ca = uChroma * (0.35 + r2 * 2.2);
-      vec2 uvR = toUv(lens(p, ca));
-      vec2 uvB = toUv(lens(p, -ca));
+      // --- lens + chromatic aberration ----------------------------------
+      vec2 uvG = toUv(lens(p, 0.0, 1.0));
+      float ca = uChroma * (0.6 + r2 * 3.0);
+      float cs = uChromaScale;
+      vec2 uvR = toUv(lens(p, ca, 1.0 + cs));
+      vec2 uvB = toUv(lens(p, -ca, 1.0 - cs));
 
       vec3 col;
       col.r = texture2D(uTex, clamp(uvR, 0.001, 0.999)).r;
@@ -155,6 +159,7 @@
     gl.uniform1f(U.uAspect, aspect);
     gl.uniform1f(U.uK1, prm.k1); gl.uniform1f(U.uK2, prm.k2); gl.uniform1f(U.uFit, fit);
     gl.uniform1f(U.uChroma, prm.chroma);
+    gl.uniform1f(U.uChromaScale, prm.chromaScale === undefined ? 0 : prm.chromaScale);
     gl.uniform1f(U.uScan, prm.scan);
     gl.uniform1f(U.uGrain, prm.grain);
     gl.uniform1f(U.uVig, prm.vignette);
@@ -315,8 +320,9 @@
 
   /* ---- the look, in one place ------------------------------------------- */
   const LOOK = {
-    k1: 0.30, k2: 0.09,
-    chroma: 0.0028,
+    k1: 0.52, k2: 0.20,      // a proper wide-angle bow, not a hint of one
+    chroma: 0.0075,
+    chromaScale: 0.0028,     // the part that shows away from the corners
     scan: 0.5,
     grain: 0.05,
     vignette: 0.8,

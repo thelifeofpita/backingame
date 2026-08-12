@@ -51,7 +51,10 @@ Everything on screen is either a reversing camera, a car park, or PlatanoMelón.
   cheap, then one pass adds the barrel distortion, chromatic fringing and sensor
   grain — and then the display itself: the picture is snapped to a 336-pixel-wide
   panel grid, with the dark lattice between pixels and the red-green-blue stripe
-  drawn at two deliberately different frequencies. Beating them together is what
+  drawn at two deliberately different frequencies. The barrel distortion is a
+  proper wide-angle bow, and the colour fringing has two parts: a cubic term
+  that shows at the corners the way lateral aberration does, and a linear
+  per-channel scale that keeps it visible across the middle of the frame. Beating them together is what
   makes a photographed screen look like a photographed screen, which is exactly
   what the mockups are. The grille eases off on the payoff so the artwork lands
   clean.
