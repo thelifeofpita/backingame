@@ -1,0 +1,139 @@
+<div id="shell">
+  <!-- Desktop only: the unit is a mobile playable, so on a big screen we show
+       it at phone size and put the legend beside it. -->
+  <aside id="deskInfo">
+    <p class="tag tag-ghost" style="display:inline-block">Playable ad · PlatanoMelón</p>
+    <h1>Back in<br><em>smoothly.</em></h1>
+    <p>A reversing-camera parking game. On a phone you steer by tilting it. Here, use the keyboard.</p>
+    <div class="legend">
+      <div><kbd>←</kbd><kbd>→</kbd> Steer the back of the car</div>
+      <div><kbd>Space</kbd> Hold to brake</div>
+      <div><span aria-hidden="true" style="color:var(--pm-yellow)">■</span> Stop inside the bay in 19 s</div>
+    </div>
+    <a class="studioLink" href="#studio" id="studioLink">Open export studio →</a>
+  </aside>
+
+  <div id="app">
+    <!-- the dashboard the display is set into ------------------------------ -->
+    <div id="dash">
+      <header id="dashTop">
+        <div class="gearsel" id="gearsel" aria-hidden="true">
+          <span>P</span><span class="on">R</span><span>N</span><span>D</span>
+        </div>
+        <div class="unitname">Rear view assist</div>
+        <div id="topRight">
+          <button class="iconbtn" id="btnSound" aria-pressed="true" aria-label="Sound on">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M11 5 6 9H3v6h3l5 4z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M18.5 5.5a9 9 0 0 1 0 13"/>
+            </svg>
+          </button>
+          <button class="iconbtn" id="btnHelp" aria-label="How to play">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" aria-hidden="true">
+              <path d="M9.2 9a2.9 2.9 0 1 1 4 2.7c-.8.4-1.2 1-1.2 1.9v.5"/><circle cx="12" cy="17.6" r="1.05" fill="currentColor" stroke="none"/>
+            </svg>
+          </button>
+        </div>
+      </header>
+
+      <div id="timer"><i id="timerFill"></i><b id="timerNum"></b></div>
+
+      <!-- reserves the space the camera feed is painted into -->
+      <div id="feedSlot"></div>
+
+      <p id="status" role="status" aria-live="polite">Line it up</p>
+
+      <div id="pdc">
+        <svg viewBox="0 0 132 84" id="pdcSvg" role="img" aria-hidden="true">
+          <!-- the car, from above, boot towards the arcs -->
+          <path d="M46 4 h40 a7 7 0 0 1 7 7 v22 a7 7 0 0 1 -7 7 h-40 a7 7 0 0 1 -7 -7 v-22 a7 7 0 0 1 7 -7 z"
+                fill="#22252a" stroke="rgba(159,141,199,0.45)" stroke-width="1.2"/>
+          <path d="M45 9 h42 v11 h-42 z" fill="rgba(159,141,199,0.16)"/>
+          <rect x="52" y="34" width="28" height="4" rx="2" fill="rgba(255,46,18,0.55)"/>
+          <g fill="none" stroke-linecap="round" stroke-width="7">
+            <path class="arc" data-i="0" d="M46.9 47.6 A 22 22 0 0 0 85.1 47.6"/>
+            <path class="arc" data-i="1" d="M42.2 55.7 A 31.4 31.4 0 0 0 89.8 55.7"/>
+            <path class="arc" data-i="2" d="M37.6 63.8 A 40.8 40.8 0 0 0 94.4 63.8"/>
+            <path class="arc" data-i="3" d="M32.9 71.9 A 50.2 50.2 0 0 0 99.1 71.9"/>
+          </g>
+        </svg>
+        <div class="dist">
+          <b id="distNum">—</b>
+          <span>to contact</span>
+        </div>
+      </div>
+
+      <div id="brakeWrap">
+        <button id="brake" aria-label="Hold to brake">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true">
+            <circle cx="12" cy="12" r="8.6"/><path d="M12 3.4v17.2M3.4 12h17.2" transform="rotate(45 12 12)"/>
+          </svg>
+          <span>Brake</span>
+        </button>
+        <p class="hint" id="ctrlHint"></p>
+      </div>
+
+      <footer id="dashFoot">
+        <span class="brandmark">PlatanoMelón</span>
+        <span class="tagline">Back in smoothly.</span>
+      </footer>
+    </div>
+
+    <!-- the camera feed is painted here, over the dashboard ---------------- -->
+    <canvas id="view" aria-hidden="true"></canvas>
+
+    <!-- boot ------------------------------------------------------------- -->
+    <div class="layer" id="boot">
+      <div class="sweep" role="presentation"></div>
+      <p class="osd-note">Connecting rear camera…</p>
+    </div>
+
+    <!-- how to play: the diagram is the explanation --------------------- -->
+    <div class="layer scrim" id="howto" hidden role="dialog" aria-modal="true" aria-labelledby="cue">
+      <div class="sheet-head">
+        <span class="tag">Reverse</span>
+        <span class="tag tag-ghost">18+</span>
+      </div>
+
+      <div class="diagram" id="diagram"></div>
+
+      <div class="actions">
+        <p class="cue" id="cue"></p>
+        <button class="btn btn-primary" id="btnStart">Start reversing</button>
+      </div>
+    </div>
+
+    <!-- result ----------------------------------------------------------- -->
+    <div class="layer" id="result" hidden role="dialog" aria-modal="true" aria-labelledby="resultTitle">
+      <div class="backdrop"></div>
+      <div class="card">
+        <div class="grab" aria-hidden="true"></div>
+        <div class="verdict">
+          <span class="dot" id="resultDot"></span>
+          <span class="lbl" id="resultLabel"></span>
+        </div>
+        <h2 id="resultTitle"></h2>
+        <p class="sub" id="resultSub"></p>
+        <div class="hero-ad" id="heroAd"></div>
+        <div class="meter">
+          <div class="top">
+            <b id="scoreVal">0%</b>
+            <span id="scoreNote">Smoothness</span>
+          </div>
+          <div class="bar"><i id="scoreBar"></i></div>
+        </div>
+        <div class="actions">
+          <a class="btn btn-primary" id="btnCta" href="#" target="_blank" rel="noopener">Shop the relaxant lube</a>
+          <button class="btn btn-ghost" id="btnAgain">
+            <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <polyline points="2.5 5 2.5 11 8.5 11"/><path d="M4.6 15.4a8.5 8.5 0 1 0 2-8.85L2.5 11"/>
+            </svg>
+            Try again
+          </button>
+        </div>
+        <p class="legal">PlatanoMelón · Lubricante relajante anal · 18+</p>
+      </div>
+    </div>
+
+    <p class="sr-only" id="live" role="status" aria-live="polite"></p>
+  </div>
+</div>
