@@ -13,7 +13,7 @@ const src = (f) => join(here, 'src', f);
 const read = (f) => (existsSync(src(f)) ? readFileSync(src(f), 'utf8') : '');
 
 const SCRIPTS = [
-  'assets.js', 'core.js', 'world.js', 'sim.js', 'draw.js', 'post.js',
+  'assets.js', 'models.js', 'core.js', 'world.js', 'sim.js', 'draw.js', 'post.js', 'gl.js',
   'audio.js', 'input.js', 'diagram.js', 'game.js', 'studio.js', 'boot.js',
 ];
 

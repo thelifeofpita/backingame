@@ -12,6 +12,8 @@
 
   const TUNE = {
     creep: 1.42,          // m/s — an automatic idling backwards
+    creepFwd: 0.95,       // and what it does when you select D
+    holdToShift: 0.62,    // s on the brake before the box goes into D
     accel: 2.6,
     brakeRate: 5.4,
     maxSteerAngle: 0.62,  // rad at the front wheels (~35°)
@@ -110,6 +112,8 @@
         v: 0, steer: 0, steerCmd: 0,
       },
       parkHold: 0,
+      brakeHold: 0,
+      gear: 'R',
       timeLeft: TUNE.timeLimit,
       proximity: 9,        // metres to whatever is behind
       inBox: false,
@@ -181,9 +185,16 @@
     s.steerWork += Math.abs(c.steer - prev);
     c.steerCmd = cmd;
 
-    // Creep backwards unless braked.
-    const target = -TUNE.creep * (1 - brake);
-    c.v = damp(c.v, target, brake > 0.02 ? TUNE.brakeRate : TUNE.accel, dt);
+    /* Hold the brake and it stops. Keep holding and the box drops into D and
+       pulls you forward again — the way an automatic does, and the only way
+       out of an overshoot. Let go and it is back in R. */
+    if (brake > 0.55) s.brakeHold += dt; else s.brakeHold = 0;
+    s.gear = s.brakeHold > TUNE.holdToShift ? 'D' : 'R';
+    const target = s.gear === 'D'
+      ? TUNE.creepFwd
+      : -TUNE.creep * (1 - brake);
+    const rate = s.gear === 'D' ? TUNE.accel * 0.8 : (brake > 0.02 ? TUNE.brakeRate : TUNE.accel);
+    c.v = damp(c.v, target, rate, dt);
     if (Math.abs(c.v) < 0.012) c.v = 0;
 
     // Kinematic bicycle, rear axle reference.
@@ -216,7 +227,7 @@
     }
 
     /* --- parked? ------------------------------------------------------- */
-    const stopped = Math.abs(c.v) < TUNE.stopSpeed;
+    const stopped = Math.abs(c.v) < TUNE.stopSpeed && s.gear === 'R';
     const good = s.inBox && stopped && Math.abs(s.headingErr) < 0.14 &&
                  s.wallGap > TUNE.gapMin && s.wallGap < TUNE.gapMax;
     if (good) {

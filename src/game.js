@@ -37,10 +37,11 @@
       ['view', 'boot', 'howto', 'result', 'brake', 'btnStart', 'btnAgain', 'btnCta', 'btnSound', 'btnHelp',
        'diagram', 'steps', 'heroAd', 'resultTitle', 'resultSub', 'resultLabel', 'resultDot',
        'scoreVal', 'scoreBar', 'scoreNote', 'live', 'cue',
-       'dash', 'feedSlot', 'timer', 'timerFill', 'timerNum', 'status', 'pdcSvg', 'distNum'].forEach((id) => {
+       'dash', 'feedSlot', 'timer', 'timerFill', 'timerNum', 'status', 'pdcSvg', 'distNum', 'gearsel'].forEach((id) => {
         this.el[id] = document.getElementById(id);
       });
       this.arcs = [...this.el.pdcSvg.querySelectorAll('.arc')];
+      this.gearEls = [...this.el.gearsel.querySelectorAll('span')];
       this.arcLit = -1;
 
       this.reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -49,10 +50,17 @@
       this.audio = NS.audio;
       this.audio.setEnabled(STORE.get('sound', true));
 
-      this.scene = document.createElement('canvas');
-      this.sctx = this.scene.getContext('2d', { alpha: false });
       this.cam = new C.Camera();
-      this.post = NS.post.makePost(this.el.view);
+      // Depth-buffered WebGL where we can get it; the 2D painter's renderer
+      // stays as the fallback for anything that cannot.
+      this.r3d = new NS.gl.Renderer(this.el.view);
+      if (this.r3d.ok) { this.r3d.loadModels(); }
+      else {
+        this.r3d = null;
+        this.scene = document.createElement('canvas');
+        this.sctx = this.scene.getContext('2d', { alpha: false });
+        this.post = NS.post.makePost(this.el.view);
+      }
 
       this._phase = 'boot';      // boot | howto | play | reveal | result
       this.wins = 0; this.rounds = 0;
@@ -150,9 +158,9 @@
 
       // The sensor is the cheap part of a reversing camera: rendering near
       // 480p is both faster and more honest than rendering sharp.
-      const sw = Math.max(2, Math.min(760 * (this.quality || 1), Math.round(feedW * dpr)));
+      const sw = Math.max(2, Math.round(Math.min(760 * (this.quality || 1), feedW * dpr)));
       const sh = Math.max(2, Math.round(sw * (feedH / feedW)));
-      this.scene.width = sw; this.scene.height = sh;
+      if (this.scene) { this.scene.width = sw; this.scene.height = sh; }
       this.cam.fov = 1.85;
       this.cam.setViewport(sw, sh);
     }
@@ -197,6 +205,7 @@
     buildRound() {
       const difficulty = clamp(this.wins * 0.22, 0, 1);
       this.level = WD.buildLevel(this.nextSeed(), difficulty);
+      if (this.r3d) this.r3d.setLevel(this.level);
       this.state = S.create(this.level);
       this.driver = S.makeDriver(this.level.seed);   // also drives the demo reel
       S.measure(this.state);
@@ -360,8 +369,10 @@
     updateStatus() {
       const st = this.state;
       let s, tone = '';
-      if (!st.inBox && Math.abs(st.lateralErr) > 0.85) { s = st.lateralErr > 0 ? 'Bay is right' : 'Bay is left'; }
+      if (st.gear === 'D') { s = 'Pulling forward'; tone = 'urgent'; }
+      else if (!st.inBox && Math.abs(st.lateralErr) > 0.85) { s = st.lateralErr > 0 ? 'Bay is right' : 'Bay is left'; }
       else if (!st.inBox) s = 'Line it up';
+      else if (st.gear === 'D') { s = 'Pulling forward'; tone = 'urgent'; }
       else if (Math.abs(st.headingErr) > 0.13) s = 'Straighten up';
       else if (st.wallGap > S.TUNE.gapMax - 0.15) { s = 'Keep coming'; tone = 'ok'; }
       else { s = 'Brake now'; tone = 'urgent'; }
@@ -384,6 +395,12 @@
       e.timer.dataset.low = low ? '1' : '0';
       if (low) e.timerNum.textContent = st.timeLeft.toFixed(1) + 's';
 
+      // R and D light as the box shifts, so the dashboard explains the control
+      if (st.gear !== this._gear) {
+        this._gear = st.gear;
+        this.gearEls.forEach((el) => el.classList.toggle('on', el.textContent === st.gear));
+      }
+
       const d = st.proximity;
       e.distNum.textContent = !playing ? '—' : d > 2.6 ? '—' : d.toFixed(1) + ' m';
       e.distNum.style.color = d < 0.5 ? 'var(--cam-red)' : 'var(--paper)';
@@ -404,6 +421,7 @@
     /* -------------------------------------------------------------- render */
     render(dt) {
       const st = this.state, cam = this.cam, ctx = this.sctx;
+      void dt;
       if (!st) return;
       const reveal = this.phase === 'reveal' || this.phase === 'result';
 
@@ -417,11 +435,9 @@
         cam.update();
       }
 
-      D.renderScene(ctx, cam, st, this.time, {
-        guides: !reveal,
-        bumper: !reveal,
-        subdiv: reveal ? 9 : 6,
-      });
+      const sceneOpts = { guides: !reveal, bumper: !reveal, subdiv: reveal ? 9 : 6 };
+      if (this.r3d) this.r3d.renderScene(cam, st, this.time, sceneOpts);
+      else D.renderScene(ctx, cam, st, this.time, sceneOpts);
 
       const L = NS.post.LOOK;
       const ease = reveal ? smoothstep(clamp((this.revealT - 0.3) / 1.1, 0, 1)) : 0;
@@ -432,7 +448,7 @@
       } : a;
       /* On the reveal the lens quietly stops being a cheap lens: the artwork
          has to arrive as artwork, not as camera footage. */
-      this.post.render(this.scene, {
+      const params = {
         rect,
         radius: this.feedRadius * this.dpr,
         time: this.time,
@@ -444,10 +460,12 @@
         bloom: L.bloom * (1 - ease * 0.85),
         gain: lerp(L.gain, 1.0, ease),
         sat: lerp(L.sat, 0.99, ease),
-        lines: Math.round(this.scene.height / 3),
+        lines: Math.round(this.cam.h / 3),
         reduce: this.reduce,
         flash: this.flash,
-      });
+      };
+      if (this.r3d) this.r3d.present(params);
+      else this.post.render(this.scene, params);
     }
   }
 

@@ -9,20 +9,25 @@
   const { makeRng, clamp, lerp, TAU } = NS.core;
 
   /* ---- fixed dimensions, in metres --------------------------------------- */
+  /* The car park is built to the proportions of the model kit rather than the
+     other way round: Kenney's cars are chunky and short, so everything else —
+     bay depth, approach, turning circle — is sized to them. */
   const CAR = {
-    len: 4.34, wid: 1.82, wheelbase: 2.62,
-    rearOverhang: 0.82,   // rear axle -> rear bumper
-    frontOverhang: 0.90,  // front axle -> nose
-    height: 1.46,
-    trackHalf: 0.78,
+    len: 3.09, wid: 1.82, wheelbase: 1.95,
+    rearOverhang: 0.56,   // rear axle -> rear bumper
+    frontOverhang: 0.58,  // front axle -> nose
+    height: 1.58,
+    trackHalf: 0.74,
+    modelScale: 1.2133,   // kit units -> metres, so a sedan is 1.82 m wide
   };
+  const MODELS = ['sedan', 'suv', 'hatch', 'van', 'coupe'];
   const GEO = {
-    bayW: 2.62, bayD: 5.05,
+    bayW: 2.62, bayD: 4.60,
     wallZ: 0,            // poster wall
     kerbZ: 0.22,         // wheel stop
     stopZ: 1.02,         // the wheel stop, and where a parked car comes to rest
-    laneZ0: 5.05,        // bay mouth
-    laneZ1: 11.6,        // far side of the lane
+    laneZ0: 4.60,        // bay mouth
+    laneZ1: 11.0,        // far side of the lane
     ceilY: 2.86,
     xMin: -13, xMax: 13,
     bayMin: -4, bayMax: 4,
@@ -111,6 +116,7 @@
         heading: (backedIn ? 0 : Math.PI) + skew,
         backedIn,
         paint,
+        model: rng.pick(MODELS),
         wagon: rng.chance(0.34),
       });
     }
@@ -184,9 +190,9 @@
        Nose points away from the wall (heading 0), so reversing carries the
        boot towards it and the tailgate camera looks straight down the bay. */
     const side = rng.sign();
-    const approach = rng.range(0.20, 0.42) + d * 0.12;         // radians off the bay axis
+    const approach = rng.range(0.26, 0.50) + d * 0.12;         // radians off the bay axis
     const start = {
-      x: targetX + side * rng.range(0.85, 1.75),
+      x: targetX + side * rng.range(1.05, 2.0),
       z: GEO.laneZ0 + rng.range(3.0, 4.0),
       heading: side * approach,
     };
@@ -210,5 +216,5 @@
     };
   }
 
-  NS.world = { CAR, GEO, CAR_PAINTS, buildLevel, carCorners, local2world, world2local, bayCenterX };
+  NS.world = { CAR, GEO, MODELS, CAR_PAINTS, buildLevel, carCorners, local2world, world2local, bayCenterX };
 })(window.PM = window.PM || {});

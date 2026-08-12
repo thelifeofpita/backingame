@@ -119,6 +119,34 @@
     }
   `;
 
+  /* Uniform plumbing, shared with gl.js which owns the context. */
+  function setUniforms(gl, p, prm, w, h, srcW, srcH) {
+    const r = prm.rect || { x0: 0, y0: 0, x1: 1, y1: 1 };
+    const aspect = ((r.x1 - r.x0) * w) / ((r.y1 - r.y0) * h);
+    const rc = aspect * aspect * 0.25 + 0.25;
+    const fit = 1 / (1 + prm.k1 * rc + prm.k2 * rc * rc);
+    const U = p.u;
+    gl.uniform2f(U.uRes, w, h);
+    gl.uniform2f(U.uSrc, srcW, srcH);
+    gl.uniform2f(U.uRMin, r.x0, 1 - r.y1);
+    gl.uniform2f(U.uRMax, r.x1, 1 - r.y0);
+    gl.uniform1f(U.uRadius, prm.radius || 0);
+    gl.uniform1f(U.uTime, prm.time || 0);
+    gl.uniform1f(U.uAspect, aspect);
+    gl.uniform1f(U.uK1, prm.k1); gl.uniform1f(U.uK2, prm.k2); gl.uniform1f(U.uFit, fit);
+    gl.uniform1f(U.uChroma, prm.chroma);
+    gl.uniform1f(U.uScan, prm.scan);
+    gl.uniform1f(U.uGrain, prm.grain);
+    gl.uniform1f(U.uVig, prm.vignette);
+    gl.uniform1f(U.uBloom, prm.bloom);
+    gl.uniform1f(U.uGain, prm.gain === undefined ? 1 : prm.gain);
+    gl.uniform1f(U.uSat, prm.sat === undefined ? 0.78 : prm.sat);
+    gl.uniform1f(U.uLines, prm.lines || 300);
+    gl.uniform1f(U.uReduce, prm.reduce ? 1 : 0);
+    const f = prm.flash || [0, 0, 0, 0];
+    gl.uniform4f(U.uFlash, f[0], f[1], f[2], f[3]);
+  }
+
   function compile(gl, type, src) {
     const s = gl.createShader(type);
     gl.shaderSource(s, src); gl.compileShader(s);
@@ -275,5 +303,5 @@
     lines: 240,
   };
 
-  NS.post = { Post, Post2D, makePost, LOOK };
+  NS.post = { Post, Post2D, makePost, LOOK, VERT, FRAG, setUniforms };
 })(window.PM = window.PM || {});

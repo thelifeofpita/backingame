@@ -272,13 +272,18 @@
       this.sctx = this.screen.getContext('2d');
       this.L = layout(SCREEN_W, SCREEN_H);
 
-      this.sceneCv = document.createElement('canvas');
       const fw = Math.round(this.L.feed.w), fh = Math.round(this.L.feed.h);
-      this.sceneCv.width = fw; this.sceneCv.height = fh;
-      this.scctx = this.sceneCv.getContext('2d', { alpha: false });
       this.feedCv = document.createElement('canvas');
       this.feedCv.width = fw; this.feedCv.height = fh;
-      this.post = NS.post.makePost(this.feedCv);
+      this.r3d = new NS.gl.Renderer(this.feedCv);
+      if (this.r3d.ok) this.r3d.loadModels();
+      else {
+        this.r3d = null;
+        this.sceneCv = document.createElement('canvas');
+        this.sceneCv.width = fw; this.sceneCv.height = fh;
+        this.scctx = this.sceneCv.getContext('2d', { alpha: false });
+        this.post = NS.post.makePost(this.feedCv);
+      }
       this.cam = new C.Camera();
       this.cam.fov = 1.85;
       this.cam.setViewport(fw, fh);
@@ -318,6 +323,7 @@
     }
     resetRun() {
       this.level = W.buildLevel(this.seed, 0.35);
+      if (this.r3d) this.r3d.setLevel(this.level);
       this.state = S.create(this.level);
       this.driver = S.makeDriver(this.seed);
       S.measure(this.state);
@@ -380,11 +386,13 @@
         cam.pitch += 0.045 * smoothstep(clamp((this.revealT - 0.15) / 1.0, 0, 1));
         cam.update();
       }
-      D.renderScene(this.scctx, cam, st, t, { guides: !reveal, bumper: !reveal, subdiv: reveal ? 9 : 6 });
+      const sceneOpts = { guides: !reveal, bumper: !reveal, subdiv: reveal ? 9 : 6 };
+      if (this.r3d) this.r3d.renderScene(cam, st, t, sceneOpts);
+      else D.renderScene(this.scctx, cam, st, t, sceneOpts);
 
       const LK = NS.post.LOOK;
       const ease = reveal ? smoothstep(clamp((this.revealT - 0.3) / 1.1, 0, 1)) : 0;
-      this.post.render(this.sceneCv, {
+      const params = {
         rect: { x0: 0, y0: 0, x1: 1, y1: 1 },
         radius: this.L.radius,
         time: t,
@@ -396,10 +404,12 @@
         bloom: LK.bloom * (1 - ease * 0.85),
         gain: lerp(LK.gain, 1, ease),
         sat: lerp(LK.sat, 0.99, ease),
-        lines: Math.round(this.sceneCv.height / 3),
+        lines: Math.round(this.feedCv.height / 3),
         reduce: false,
         flash: this.flash,
-      });
+      };
+      if (this.r3d) this.r3d.present(params);
+      else this.post.render(this.sceneCv, params);
 
       const [text, tone] = this.statusOf();
       drawScreen(this.sctx, SCREEN_W, SCREEN_H, {

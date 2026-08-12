@@ -43,7 +43,12 @@
       const img = new Image();
       img.onload = () => {
         const mips = C.makeMips(img, 4);
-        res({ id: d.id, shape: d.shape, img, mips, shadow: silhouette(mips[2] || img),
+        const shadow = silhouette(mips[2] || img);
+        // WebGL1 will not mipmap a non-power-of-two texture, and without mips
+        // the poster crawls with aliasing at the far end of the car park. Square
+        // it off here; the quad carries the real aspect ratio.
+        res({ id: d.id, shape: d.shape, img, mips, shadow,
+              pot: toPot(img, 512), potShadow: toPot(shadow, 256),
               w: img.width, h: img.height, ar: img.width / img.height });
       };
       img.onerror = () => res(null);
@@ -53,6 +58,15 @@
       NS.ads = ads;
       return ads;
     });
+  }
+
+  function toPot(src, n) {
+    const cv = document.createElement('canvas');
+    cv.width = n; cv.height = n;
+    const c = cv.getContext('2d');
+    c.imageSmoothingQuality = 'high';
+    c.drawImage(src, 0, 0, n, n);
+    return cv;
   }
 
   /* a black copy of the sticker, for the shadow it casts on the concrete */
@@ -183,9 +197,11 @@
     const d = dist2(cam, cx, 0);
     const a = alpha * (1 - fogAmt(d));
     if (a < 0.02) return;
+    // uv (0,0) is the image's top-left; on a wall seen from the lane that is
+    // world +x, +y — the same mapping the poster uses
     C.drawTexturedQuad(ctx, _txtCv, cam, [
-      { x: cx + w / 2, y: cy - h / 2, z: 0.004 }, { x: cx - w / 2, y: cy - h / 2, z: 0.004 },
-      { x: cx - w / 2, y: cy + h / 2, z: 0.004 }, { x: cx + w / 2, y: cy + h / 2, z: 0.004 },
+      { x: cx + w / 2, y: cy + h / 2, z: 0.004 }, { x: cx - w / 2, y: cy + h / 2, z: 0.004 },
+      { x: cx - w / 2, y: cy - h / 2, z: 0.004 }, { x: cx + w / 2, y: cy - h / 2, z: 0.004 },
     ], { subdiv: 3, alpha: a });
   }
 
@@ -301,7 +317,7 @@
             const ang = (k / 14) * Math.PI * 2;
             pts.push({ x: cx + Math.cos(ang) * rad * 1.1, y: 0.001, z: ln.z + Math.sin(ang) * rad });
           }
-          C.fillPoly(ctx, cam, pts, `rgba(${190 + (ln.warm || 0) * 22},200,${190 - (ln.warm || 0) * 26},${alpha})`);
+          C.fillPoly(ctx, cam, pts, `rgba(${196 + (ln.warm || 0) * 8},200,${196 - (ln.warm || 0) * 10},${alpha})`);
         }
       }
     }
@@ -564,7 +580,7 @@
       { f: front, hw: hw * 0.86, y0: 0.325, y1: 0.95 },
     ], BODY_SECTION, {
       tag: 'body',
-      colorFor: (q) => (q[0].y < 0.34 && q[1].y < 0.34 ? dark : body),   // sills and bumpers
+      colorFor: (q) => (q[0].y < 0.46 && q[1].y < 0.46 ? dark : body),   // sills and bumpers
       col: body, capCol: body,
     });
     void bumper;
@@ -579,12 +595,13 @@
       { f: cabFront, hw: hw * 0.78, y0: beltY - 0.03, y1: beltY + 0.20 },
     ], CABIN_SECTION, {
       tag: 'cabin',
-      // panels that stand up are windows; panels that lie down are roof
+      /* Panels that stand up are windows, panels that lie down are roof. The
+         test has to look along the section edge (q0 -> q1), which is the way
+         the panel faces; q0 -> q3 only says how long the car is. */
       colorFor: (q) => {
-        const dy = Math.abs((q[0].y + q[1].y) / 2 - (q[2].y + q[3].y) / 2);
-        const dh = Math.hypot((q[0].x + q[1].x) / 2 - (q[2].x + q[3].x) / 2,
-                              (q[0].z + q[1].z) / 2 - (q[2].z + q[3].z) / 2);
-        return dy > dh * 0.55 ? glass : roof;   // upright panels are windows
+        const dy = Math.abs(q[1].y - q[0].y);
+        const dh = Math.hypot(q[1].x - q[0].x, q[1].z - q[0].z);
+        return dy > dh * 0.5 ? glass : roof;
       },
       col: glass, capCol: glass,
     });
@@ -593,7 +610,7 @@
     const wr = 0.325, tyre = [26, 26, 28], rim = [92, 95, 99];
     for (const wf of [0.02, W.CAR.wheelbase]) {
       for (const sgn of [-1, 1]) {
-        ngon(F, V, wf, sgn * (hw - 0.075), 8, wr, 0.21, tyre, rim, 'wheel');
+        ngon(F, V, wf, sgn * (hw - 0.12), 8, wr, 0.19, tyre, rim, 'wheel');
       }
     }
 
@@ -804,8 +821,46 @@
     if (opts.bumper !== false) drawBumper(ctx, w, h);
   }
 
+  /* One canvas of wall lettering per level, and the quads it maps onto:
+     bay numbers over each bay and the level marker by the exit. */
+  const _signCache = {};
+  function signAtlas(L) {
+    if (_signCache.seed === L.seed) return _signCache.out;
+    const g = L.geo;
+    const rows = [];
+    for (let k = g.bayMin; k <= g.bayMax; k++) rows.push({ text: String(k + 12), size: 0.30, x: W.bayCenterX(k), y: 2.52 });
+    rows.push({ text: L.levelSign, size: 0.44, x: W.bayCenterX(L.target.k + 3 * L.exitSide), y: 2.30, col: PAL.lilac });
+    const CELL = 128, cols = 8;
+    const cv = document.createElement('canvas');
+    cv.width = CELL * cols;
+    cv.height = CELL * Math.ceil(rows.length / cols);
+    const c = cv.getContext('2d');
+    c.textAlign = 'center'; c.textBaseline = 'middle';
+    const quads = [];
+    rows.forEach((r, i) => {
+      const cx = (i % cols) * CELL, cy = Math.floor(i / cols) * CELL;
+      c.font = `700 ${r.text.length > 2 ? 44 : 62}px 'DM Sans', ui-sans-serif, sans-serif`;
+      c.fillStyle = r.col || 'rgba(216,218,210,0.82)';
+      c.fillText(r.text, cx + CELL / 2, cy + CELL / 2);
+      const w = r.size * (c.measureText(r.text).width / 62) * 1.6;
+      const h = r.size;
+      const u0 = cx / cv.width, u1 = (cx + CELL) / cv.width;
+      const v0 = cy / cv.height, v1 = (cy + CELL) / cv.height;
+      quads.push({
+        pts: [
+          { x: r.x + w / 2, y: r.y + h / 2, z: 0.01 }, { x: r.x - w / 2, y: r.y + h / 2, z: 0.01 },
+          { x: r.x - w / 2, y: r.y - h / 2, z: 0.01 }, { x: r.x + w / 2, y: r.y - h / 2, z: 0.01 },
+        ],
+        uv: [u0, v0, u1, v0, u1, v1, u0, v1],
+      });
+    });
+    _signCache.seed = L.seed;
+    _signCache.out = { canvas: cv, quads };
+    return _signCache.out;
+  }
+
   NS.draw = {
     PAL, loadAds, renderScene, placeCamera, drawGuides, drawPoster,
-    guidePoint, fogged, ads,
+    guidePoint, fogged, ads, carFaces, signAtlas,
   };
 })(window.PM = window.PM || {});

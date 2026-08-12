@@ -26,6 +26,9 @@ run per execution by default, so every poster in the campaign gets a set.
   where the back of the car is going. Hold the red button to brake. If the device
   refuses motion access, it falls back to dragging a finger across the screen.
 - **Desktop** — `←` `→` steer, `space` brakes.
+- Holding the brake stops the car; **keep holding and the box drops into D** and
+  pulls you forward again, which is the only way out of an overshoot. The P R N D
+  indicator on the dashboard shows which gear you are in.
 - A round is 19 seconds. Park square, centred, up to the wheel stop, without
   touching anything. Do it properly and the poster is already filling the display
   when you stop — no reveal, no cutaway.
@@ -59,11 +62,16 @@ Everything on screen is either a reversing camera, a car park, or PlatanoMelón.
   The camera never leaves the car.
 - **The floor markings get out of the way.** Bay outline and chevrons fade as the
   car closes on the stop, so the last second belongs to the poster.
-- **Cars are lofted, not boxed.** Each one is a cross-section swept along six
-  stations — shoulders, tapering nose, boot — with a separate greenhouse whose
-  upright panels become glass and flat ones roof. Normals are derived from the
-  geometry and forced outwards against the part's own centre, so no panel can
-  render inside-out. Distant cars drop to a two-box stand-in.
+- **The cars are Kenney's Car Kit** (CC0), re-baked to flat colours and 16-bit
+  positions so five of them cost about 185 KB and need no texture. The body
+  paint is the one patch the shader re-tints, so the same five models fill a
+  car park in a dozen colours.
+- **The scene is drawn in WebGL with a depth buffer.** A painter's-algorithm 2D
+  renderer cannot sort a two-thousand-triangle car against itself — every face
+  showed at once. The hardware decides now. Flat normals come from screen-space
+  derivatives and are turned to face the viewer, so winding never matters, and
+  the strip lights are evaluated per pixel rather than faked with sprites. It
+  also costs about a seventh of the CPU the 2D renderer did.
 - **Type** is DM Sans throughout — tight and large for the brand's voice, tracked
   out with tabular figures for the car's readouts.
 - **Instruction is one diagram and one line.** The diagram is a live miniature of
