@@ -471,7 +471,12 @@
       for (const car of L.cars) {
         const mdl = this.models[car.model] || this.models[this.modelNames[0]];
         if (!mdl) continue;
-        trs(mm, car.x, 0, car.z, car.heading, 1);   // the kit's nose is +z, same as ours
+        /* A pose is the rear axle everywhere in the simulation, but a baked
+           model is centred on its own bounding box. Shift it forward by the
+           difference or every parked car sits a metre out of its bay — over
+           the wheel stop one way round, into the aisle the other. */
+        const cf = (car.len || W.CAR.len) * 0.5 - W.CAR.rearOverhang;
+        trs(mm, car.x + Math.sin(car.heading) * cf, 0, car.z + Math.cos(car.heading) * cf, car.heading, 1);
         gl.uniformMatrix4fv(p.u.uM, false, mm);
         gl.uniform3f(p.u.uTint, car.paint.body[0] / 255, car.paint.body[1] / 255, car.paint.body[2] / 255);
         this.bindSolid(mdl);

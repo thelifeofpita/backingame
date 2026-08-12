@@ -902,12 +902,12 @@ window.PM_MODELS = {
     coupe: { len: 3.09, wid: 1.58 },
   };
   const GEO = {
-    bayW: 2.62, bayD: 4.60,
+    bayW: 2.62, bayD: 4.90,
     wallZ: 0,            // poster wall
     kerbZ: 0.22,         // wheel stop
     stopZ: 1.02,         // the wheel stop, and where a parked car comes to rest
-    laneZ0: 4.60,        // bay mouth
-    laneZ1: 11.0,        // far side of the lane
+    laneZ0: 4.90,        // bay mouth, deep enough for the longest model
+    laneZ1: 11.3,        // far side of the lane
     ceilY: 2.86,
     xMin: -13, xMax: 13,
     bayMin: -4, bayMax: 4,
@@ -3124,7 +3124,12 @@ window.PM_MODELS = {
       for (const car of L.cars) {
         const mdl = this.models[car.model] || this.models[this.modelNames[0]];
         if (!mdl) continue;
-        trs(mm, car.x, 0, car.z, car.heading, 1);   // the kit's nose is +z, same as ours
+        /* A pose is the rear axle everywhere in the simulation, but a baked
+           model is centred on its own bounding box. Shift it forward by the
+           difference or every parked car sits a metre out of its bay — over
+           the wheel stop one way round, into the aisle the other. */
+        const cf = (car.len || W.CAR.len) * 0.5 - W.CAR.rearOverhang;
+        trs(mm, car.x + Math.sin(car.heading) * cf, 0, car.z + Math.cos(car.heading) * cf, car.heading, 1);
         gl.uniformMatrix4fv(p.u.uM, false, mm);
         gl.uniform3f(p.u.uTint, car.paint.body[0] / 255, car.paint.body[1] / 255, car.paint.body[2] / 255);
         this.bindSolid(mdl);

@@ -30,12 +30,12 @@
     coupe: { len: 3.09, wid: 1.58 },
   };
   const GEO = {
-    bayW: 2.62, bayD: 4.60,
+    bayW: 2.62, bayD: 4.90,
     wallZ: 0,            // poster wall
     kerbZ: 0.22,         // wheel stop
     stopZ: 1.02,         // the wheel stop, and where a parked car comes to rest
-    laneZ0: 4.60,        // bay mouth
-    laneZ1: 11.0,        // far side of the lane
+    laneZ0: 4.90,        // bay mouth, deep enough for the longest model
+    laneZ1: 11.3,        // far side of the lane
     ceilY: 2.86,
     xMin: -13, xMax: 13,
     bayMin: -4, bayMax: 4,
