@@ -54,7 +54,10 @@ Everything on screen is either a reversing camera, a car park, or PlatanoMelón.
   pixels bow with the picture and pack tighter towards the edges rather than
   sitting on top as a flat mesh. The colour fringing is measured in whole panel
   pixels, because snapping the sample to pixel centres quantises away anything
-  smaller than a texel, which is what made an earlier version invisible. How
+  smaller than a texel, which is what made an earlier version invisible. It is
+  zero on the optical axis and climbs steeply towards the corners, because that
+  is what a lens does — the centre of the picture, where the poster ends up, is
+  never touched. How
   much of the matrix gets drawn depends on how many output pixels a panel pixel
   covers, measured per fragment: draw it where it can be resolved, fade it where
   it cannot, or it aliases into a diagonal weave. Beating them together is what

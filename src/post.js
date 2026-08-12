@@ -72,7 +72,8 @@
          sample to pixel centres quantises away any offset smaller than a
          texel, which is what made the aberration vanish once the grid arrived. */
       vec2 dir = r2 > 1e-7 ? normalize(p / vec2(uAspect, 1.0)) : vec2(0.0);
-      vec2 off = dir * texel * (uChroma * (0.75 + r2 * 2.4));
+      // zero on the optical axis, climbing steeply towards the corners
+      vec2 off = dir * texel * (uChroma * (r2 * 2.0 + r2 * r2 * 6.5));
 
       vec3 col;
       col.r = texture2D(uTex, clamp(SNAP(uvG + off), 0.001, 0.999)).r;
@@ -115,23 +116,25 @@
          what can actually be resolved or the matrix aliases into a diagonal
          weave instead of a grid. */
       float cellPx = 1.0 / max(fwidth(cell.x), 1e-5);
-      float latAmt = smoothstep(1.1, 2.4, cellPx) * uGrille;
-      float subAmt = smoothstep(3.0, 6.0, cellPx) * uGrille;
+      float latAmt = smoothstep(0.9, 1.9, cellPx) * uGrille;
 
       vec2 f = fract(cell);
       float gx = 0.5 - 0.5 * cos(f.x * 6.2831853);
       float gy = 0.5 - 0.5 * cos(f.y * 6.2831853);
-      float door = mix(1.0, 0.40 + 0.60 * gx * gy, latAmt);
-      // three subpixels to a pixel, but only where they fit
-      float sub = floor(f.x * 3.0);
-      vec3 stripe = vec3(sub < 1.0 ? 1.0 : 0.66,
-                         (sub >= 1.0 && sub < 2.0) ? 1.0 : 0.66,
-                         sub >= 2.0 ? 1.0 : 0.66);
-      vec3 matrix = mix(vec3(1.0), stripe, subAmt) * door;
+      float door = mix(1.0, 0.34 + 0.66 * gx * gy, latAmt);
+      /* One colour per pixel column rather than three subpixels inside each:
+         at this density a third of a panel pixel is finer than an output pixel
+         and only aliases, but a whole column resolves and still reads as an
+         RGB matrix. */
+      float lane = mod(floor(cell.x), 3.0);
+      vec3 tint = vec3(lane < 1.0 ? 1.0 : 0.93,
+                       (lane >= 1.0 && lane < 2.0) ? 1.0 : 0.93,
+                       lane >= 2.0 ? 1.0 : 0.93);
+      vec3 matrix = mix(vec3(1.0), tint, latAmt) * door;
       float scan = sin(cell.y * 3.14159265);
       matrix *= mix(1.0, 0.92 + 0.08 * scan * scan, uScan);
       col *= matrix;
-      col *= 1.0 + latAmt * 0.46 + subAmt * 0.18;   // give back what it took
+      col *= 1.0 + latAmt * 0.40;   // give back what the lattice took
       // slow rolling refresh bar
       col *= 1.0 + (1.0 - uReduce) * 0.016 * sin(luv.y * 5.0 - uTime * 0.9);
 
@@ -330,15 +333,15 @@
   /* ---- the look, in one place ------------------------------------------- */
   const LOOK = {
     k1: 0.52, k2: 0.20,      // a proper wide-angle bow, not a hint of one
-    chroma: 1.35,            // measured in panel pixels, so it survives snapping
+    chroma: 2.1,             // measured in panel pixels, so it survives snapping
     scan: 0.5,
     grain: 0.05,
     vignette: 0.8,
     bloom: 0.22,
     gain: 1.03,
     sat: 0.78,
-    panel: 432,      // the display's horizontal pixel count
-    grille: 0.5,
+    panel: 348,      // the display's horizontal pixel count
+    grille: 0.62,
     lines: 240,
   };
 
