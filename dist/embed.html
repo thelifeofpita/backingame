@@ -3675,6 +3675,7 @@ window.PM_ADS = [
       this.format = '9:16';
       this.long = 1080;
       this.backdrop = 'none';
+      this.allAds = true;
       this.caption = true;
       this.time = 0;
       this.usedSeeds = new Set(JSON.parse(localStorage.getItem('pm_bis_demoSeeds') || '[]'));
@@ -3708,18 +3709,22 @@ window.PM_ADS = [
     }
 
     /* ---- demo selection: vetted offline, never the same twice ---------- */
-    newDemo() {
+    /* wantAd: pick a car park whose wall is wearing that execution */
+    newDemo(wantAd) {
       let seed = 0, tries = 0, res = null;
+      const bad = (r) => !r || !r.ok || r.time < 4.2 || r.time > 12 ||
+        (wantAd !== undefined && wantAd !== null && r.level.poster.index !== wantAd);
       do {
         seed = (Math.random() * 0xffffffff) >>> 0;
         if (this.usedSeeds.has(seed)) continue;
         res = S.simulateOffline(seed, 0.35, 1 / 60, false);
         tries++;
-      } while ((!res || !res.ok || res.time < 4.2 || res.time > 12) && tries < 260);
+      } while (bad(res) && tries < 700);
       this.usedSeeds.add(seed);
       if (this.usedSeeds.size > 400) this.usedSeeds = new Set([...this.usedSeeds].slice(-200));
       try { localStorage.setItem('pm_bis_demoSeeds', JSON.stringify([...this.usedSeeds])); } catch (e) { /* */ }
       this.seed = seed;
+      this.adIndex = res ? res.level.poster.index : 0;
       this.runTime = res ? res.time : 8;
       this.resetRun();
       if (this.el.seed) this.el.seed.textContent = '#' + seed.toString(16).padStart(8, '0');
@@ -3910,11 +3915,12 @@ window.PM_ADS = [
     /* Ten moments from one run: the swing in, the line-up, the last inch,
        and the poster the camera ends on. Rendered on nothing at all, so they
        drop straight into a deck or a layout. */
-    async exportStills(count) {
-      const n = count || 10;
-      this.busyOn('Rendering stills…');
+    async exportStills(count, opts) {
+      const n = count || 5;
+      if (!opts || !opts.hold) this.busyOn('Rendering stills…');
       const keepBd = this.backdrop, keepCap = this.caption;
-      this.backdrop = 'none'; this.caption = false;
+      this.backdrop = 'none';
+      this.allAds = true; this.caption = false;
 
       this.resetRun();
       /* Weighted towards the manoeuvre. The camera holds still once the car is
@@ -3943,13 +3949,38 @@ window.PM_ADS = [
       }
       this.backdrop = keepBd; this.caption = keepCap; this.poseOffset = 0;
 
+      if (!opts || !opts.hold) {
+        await this.saveStills(files, opts);
+        this.busyOff();
+      }
+      return files;
+    }
+
+    /* Name by execution, so a set of fifteen sorts into three legible runs. */
+    async saveStills(files, opts) {
+      const ad = (D.ads[this.adIndex] && D.ads[this.adIndex].id) || 'ad';
+      const tag = (opts && opts.tag) || ad;
       for (let i = 0; i < files.length; i++) {
-        if (files[i]) this.download(files[i], `back-in-smoothly_${this.seed.toString(16)}_${String(i + 1).padStart(2, '0')}.png`);
+        if (files[i]) this.download(files[i], `back-in-smoothly_${tag}_${String(i + 1).padStart(2, '0')}.png`);
         await new Promise((r) => setTimeout(r, 220));   // browsers rate-limit bursts
       }
-      this.busyOff();
       this.say(`${files.length} stills saved.`);
-      return files;
+    }
+
+    /* One run per execution, so every poster in the campaign gets a set. */
+    async exportEveryAd(perAd) {
+      this.busyOn('Rendering all three…');
+      const out = [];
+      for (let a = 0; a < Math.max(1, D.ads.length); a++) {
+        this.newDemo(a);
+        const files = await this.exportStills(perAd, { hold: true });
+        const tag = (D.ads[a] && D.ads[a].id) || ('ad' + (a + 1));
+        for (const f of files) out.push({ blob: f, tag });
+        await this.saveStills(files, { tag });
+      }
+      this.busyOff();
+      this.say(`${out.length} stills saved across ${D.ads.length} executions.`);
+      return out;
     }
 
     download(blob, name) {
@@ -3984,16 +4015,17 @@ window.PM_ADS = [
             <header>
               <p class="tag">Export studio</p>
               <h1>Demo stills</h1>
-              <p class="st-note">A floating phone playing a round nobody has played before. Ten moments, on nothing at all.</p>
+              <p class="st-note">A floating phone playing a round nobody has played before. One run per execution, on nothing at all.</p>
             </header>
             <div class="st-row"><label>Format</label><div class="st-seg" id="stFormat"></div></div>
             <div class="st-row"><label>Backdrop</label><div class="st-seg" id="stBack"></div></div>
             <div class="st-row"><label>Caption</label><div class="st-seg" id="stCap"></div></div>
-            <div class="st-row"><label>Stills</label>
+            <div class="st-row"><label>Executions</label><div class="st-seg" id="stAds"></div></div>
+            <div class="st-row"><label>Frames per run</label>
               <select id="stCount">
-                <option value="6">6 frames</option>
-                <option value="10" selected>10 frames</option>
-                <option value="14">14 frames</option>
+                <option value="4">4 frames</option>
+                <option value="5" selected>5 frames</option>
+                <option value="8">8 frames</option>
               </select>
             </div>
             <div class="st-meta">
@@ -4031,8 +4063,11 @@ window.PM_ADS = [
       seg(root.querySelector('#stFormat'), Object.keys(FORMATS).map((k) => [k, k]), () => this.format, (v) => this.setFormat(v));
       seg(root.querySelector('#stBack'), Object.entries(BACKDROPS).map(([k, v]) => [k, v.name]), () => this.backdrop, (v) => { this.backdrop = v; });
       seg(root.querySelector('#stCap'), [[true, 'On'], [false, 'Off']], () => this.caption, (v) => { this.caption = v; });
+      seg(root.querySelector('#stAds'), [[true, 'All three'], [false, 'This one']], () => this.allAds, (v) => { this.allAds = v; });
       root.querySelector('#stNew').onclick = () => this.newDemo();
-      root.querySelector('#stPng').onclick = () => this.exportStills(+this.el.count.value);
+      root.querySelector('#stPng').onclick = () => (this.allAds
+        ? this.exportEveryAd(+this.el.count.value)
+        : this.exportStills(+this.el.count.value));
       this.el.buttons = [...root.querySelectorAll('.st-actions button, .st-chip, #stCount')];
     }
   }

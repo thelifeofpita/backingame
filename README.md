@@ -13,10 +13,11 @@ The poster on the wall is one of the three campaign executions, picked at random
 | --- | --- |
 | `index.html` | **The unit.** One self-contained file — artwork, DM Sans and all code are embedded. No network requests at runtime. Open it anywhere, drop it into any ad server. 383 KB. It sits at the repo root so GitHub Pages serves the game rather than this page. |
 | `dist/embed.html` | The same page as body content only, for hosts that supply their own document shell. |
-| `stills/*.png` | Ten hero stills: the floating phone, turning, at ten moments of one demo round. 900 × 1600, transparent background. |
+| `stills/*.png` | Fifteen hero stills: the floating phone, turning, at five moments of a round — one run for each of the three executions, named `ad1` / `ad2` / `ad3`. 900 × 1600, transparent background. |
 
 Add `#studio` to the URL to make more stills — new seed, new car park, new run,
-every time: <https://thelifeofpita.github.io/backingame/#studio>
+every time: <https://thelifeofpita.github.io/backingame/#studio>. It renders one
+run per execution by default, so every poster in the campaign gets a set.
 
 ## Playing it
 

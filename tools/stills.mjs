@@ -17,26 +17,31 @@ page.on('console', (m) => { if (m.type() === 'error' && !/404/.test(m.text())) c
 await page.goto('http://127.0.0.1:8791/index.html#studio', { waitUntil: 'networkidle0' });
 await new Promise((r) => setTimeout(r, 3500));
 
-const files = await page.evaluate(async () => {
+const PER_AD = +(process.argv[2] || 5);
+
+const files = await page.evaluate(async (perAd) => {
   const st = PM.studio;
   st.long = 1600;               // render big; they are hero assets
   st.setFormat('9:16');
-  const out = [];
   st.download = () => {};       // collect instead of downloading
-  const blobs = await st.exportStills(10);
-  for (const b of blobs) {
-    const buf = await b.arrayBuffer();
+  const items = await st.exportEveryAd(perAd);
+  const out = [];
+  for (const it of items) {
+    const buf = await it.blob.arrayBuffer();
     const u = new Uint8Array(buf);
     let s = '';
     for (let i = 0; i < u.length; i += 8192) s += String.fromCharCode.apply(null, u.subarray(i, i + 8192));
-    out.push(btoa(s));
+    out.push({ tag: it.tag, b64: s ? btoa(s) : null });
   }
-  return { seed: st.seed.toString(16), out };
-}, { timeout: 180000 });
+  return out;
+}, PER_AD, { timeout: 420000 });
 
-files.out.forEach((b64, i) => {
-  const name = `${OUT}/back-in-smoothly_${String(i + 1).padStart(2, '0')}.png`;
-  writeFileSync(name, Buffer.from(b64, 'base64'));
+const seen = {};
+files.forEach((f) => {
+  if (!f.b64) return;
+  seen[f.tag] = (seen[f.tag] || 0) + 1;
+  const name = `${OUT}/back-in-smoothly_${f.tag}_${String(seen[f.tag]).padStart(2, '0')}.png`;
+  writeFileSync(name, Buffer.from(f.b64, 'base64'));
 });
-console.log('seed', files.seed, '·', files.out.length, 'stills');
+console.log(files.length, 'stills ·', JSON.stringify(seen));
 await browser.close();
