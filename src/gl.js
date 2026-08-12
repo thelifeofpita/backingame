@@ -570,7 +570,11 @@
       m.pos.length = 0; m.col.length = 0; m.flag.length = 0;
       const D = NS.draw;
       const half = W.CAR.wid / 2 + 0.06, backF = -W.CAR.rearOverhang - 0.03;
-      const SEG = 16, MAXARC = 2.7, wdt = 0.055;
+      const SEG = 16, MAXARC = 2.7;
+      /* A real overlay is drawn at a constant width on the screen. Ours lives
+         in the world, so without this the nearest segment — the red bar — comes
+         out as a band across the bottom of the picture. */
+      const widthAt = (p) => clamp(Math.hypot(p.x - cam.pos.x, p.z - cam.pos.z) * 0.026, 0.020, 0.058);
       const rail = (lr) => {
         const out = [];
         for (let i = 0; i <= SEG; i++) {
@@ -584,11 +588,12 @@
         for (let i = 0; i < pts.length - 1; i++) {
           const a = pts[i], b = pts[i + 1];
           const dx = b.x - a.x, dz = b.z - a.z, l = Math.hypot(dx, dz) || 1;
-          const nx = (-dz / l) * wdt, nz = (dx / l) * wdt;
+          const wa = widthAt(a), wb = widthAt(b);
+          const ux = -dz / l, uz = dx / l;
           const y = 0.02;
           const col = colFn(i / (pts.length - 1));
-          m.quad({ x: a.x - nx, y, z: a.z - nz }, { x: b.x - nx, y, z: b.z - nz },
-            { x: b.x + nx, y, z: b.z + nz }, { x: a.x + nx, y, z: a.z + nz }, col, FLAG.UNLIT);
+          m.quad({ x: a.x - ux * wa, y, z: a.z - uz * wa }, { x: b.x - ux * wb, y, z: b.z - uz * wb },
+            { x: b.x + ux * wb, y, z: b.z + uz * wb }, { x: a.x + ux * wa, y, z: a.z + uz * wa }, col, FLAG.UNLIT);
         }
       };
       const split = 1.75 / MAXARC;
@@ -603,7 +608,7 @@
           ribbon([a, b], () => col);
         }
       }
-      const barArc = 0.44;
+      const barArc = 0.52;
       const bl = D.guidePoint(st.car, backF, -half, barArc), br = D.guidePoint(st.car, backF, half, barArc);
       const blu = D.guidePoint(st.car, backF, -half, barArc - 0.30), bru = D.guidePoint(st.car, backF, half, barArc - 0.30);
       ribbon([blu, bl, br, bru], () => D.PAL.redRGB);

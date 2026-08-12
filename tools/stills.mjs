@@ -24,7 +24,7 @@ const files = await page.evaluate(async (perAd) => {
   st.long = 1600;               // render big; they are hero assets
   st.setFormat('9:16');
   st.download = () => {};       // collect instead of downloading
-  const items = await st.exportEveryAd(perAd);
+  const items = await st.exportSet(perAd);
   const out = [];
   for (const it of items) {
     const buf = await it.blob.arrayBuffer();

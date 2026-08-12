@@ -510,32 +510,69 @@
     }
 
     /* ---- stills -------------------------------------------------------- */
-    /* Ten moments from one run: the swing in, the line-up, the last inch,
-       and the poster the camera ends on. Rendered on nothing at all, so they
-       drop straight into a deck or a layout. */
-    async exportStills(count, opts) {
-      const n = count || 5;
-      if (!opts || !opts.hold) this.busyOn('Rendering stills…');
+    /* Every frame is its own car park. Sharing one run across a set meant five
+       pictures of the same neighbours from the same approach; a fresh seed per
+       still gives different cars, a different angle in, and a different moment
+       of the manoeuvre in each one. */
+    async exportSet(perAd, opts) {
+      const n = Math.max(1, perAd || 5);
+      const ads = Math.max(1, D.ads.length);
+      this.busyOn('Rendering stills…');
       const keepBd = this.backdrop, keepCap = this.caption;
-      this.backdrop = 'none';
-      this.allAds = true; this.caption = false;
+      this.backdrop = 'none'; this.caption = false;
 
+      const out = [];
+      let made = 0;
+      const total = n * ads;
+      for (let a = 0; a < ads; a++) {
+        const tag = (D.ads[a] && D.ads[a].id) || ('ad' + (a + 1));
+        const files = [];
+        for (let i = 0; i < n; i++) {
+          this.newDemo(a);                       // new seed: new car park, new cars
+          // spread the set across the manoeuvre, and jitter so two sets never
+          // land on the same beats
+          // biased late: the poster is the point, and it only fills the frame
+          // once the car is well into the bay
+          const spread = Math.pow((i + 0.5) / n, 0.6);
+          const jitter = (this.state.rng() - 0.5) * (0.5 / n);
+          const frac = clamp(spread + jitter, 0.12, 1.18);
+          const target = frac <= 1 ? this.runTime * frac : this.runTime + 0.8;
+          this.poseOffset = (made * 1.73) % 11.3;   // its own attitude, too
+          let t = 0;
+          const dt = 1 / 60;
+          while (t < target) { this.stepSim(dt); t += dt; }
+          this.renderScreen(t);
+          this.renderFrame(t);
+          files.push(await new Promise((res) => this.out.toBlob(res, 'image/png')));
+          made++;
+          this.say(`Rendering stills… ${made}/${total}`);
+          await new Promise((r) => setTimeout(r, 0));
+        }
+        for (const f of files) out.push({ blob: f, tag });
+        await this.saveStills(files, { tag });
+      }
+      this.backdrop = keepBd; this.caption = keepCap; this.poseOffset = 0;
+      this.busyOff();
+      this.say(`${out.length} stills saved across ${ads} executions.`);
+      return out;
+    }
+
+    /* the current demo only, if that is what you asked for */
+    async exportStills(count) {
+      const n = count || 5;
+      this.busyOn('Rendering stills…');
+      const keepBd = this.backdrop, keepCap = this.caption;
+      this.backdrop = 'none'; this.caption = false;
       this.resetRun();
-      /* Weighted towards the manoeuvre. The camera holds still once the car is
-         parked, so more than a couple of resting frames would just repeat. */
-      const nEnd = n >= 8 ? 2 : 1, nRun = n - nEnd;
-      const marks = [];
-      for (let i = 0; i < nRun; i++) marks.push(this.runTime * (0.06 + 0.86 * (i / (nRun - 1))));
-      for (let i = 0; i < nEnd; i++) marks.push(this.runTime + 0.7 + i * 1.4);
-
-      let t = 0, mi = 0;
       const files = [];
       const dt = 1 / 60;
+      let t = 0, mi = 0;
+      const marks = [];
+      for (let i = 0; i < n - 1; i++) marks.push(this.runTime * (0.06 + 0.86 * (i / Math.max(1, n - 2))));
+      marks.push(this.runTime + 0.8);
       while (mi < n && t < marks[n - 1] + 2.0) {
-        this.stepSim(dt);
-        t += dt;
+        this.stepSim(dt); t += dt;
         if (t >= marks[mi]) {
-          // give every still its own attitude, so a set reads as a set
           this.poseOffset = mi * 2.55;
           this.renderScreen(t);
           this.renderFrame(t);
@@ -546,15 +583,12 @@
         }
       }
       this.backdrop = keepBd; this.caption = keepCap; this.poseOffset = 0;
-
-      if (!opts || !opts.hold) {
-        await this.saveStills(files, opts);
-        this.busyOff();
-      }
+      await this.saveStills(files, {});
+      this.busyOff();
       return files;
     }
 
-    /* Name by execution, so a set of fifteen sorts into three legible runs. */
+    /* Name by execution, so a set of fifteen sorts into three legible groups. */
     async saveStills(files, opts) {
       const ad = (D.ads[this.adIndex] && D.ads[this.adIndex].id) || 'ad';
       const tag = (opts && opts.tag) || ad;
@@ -563,22 +597,6 @@
         await new Promise((r) => setTimeout(r, 220));   // browsers rate-limit bursts
       }
       this.say(`${files.length} stills saved.`);
-    }
-
-    /* One run per execution, so every poster in the campaign gets a set. */
-    async exportEveryAd(perAd) {
-      this.busyOn('Rendering all three…');
-      const out = [];
-      for (let a = 0; a < Math.max(1, D.ads.length); a++) {
-        this.newDemo(a);
-        const files = await this.exportStills(perAd, { hold: true });
-        const tag = (D.ads[a] && D.ads[a].id) || ('ad' + (a + 1));
-        for (const f of files) out.push({ blob: f, tag });
-        await this.saveStills(files, { tag });
-      }
-      this.busyOff();
-      this.say(`${out.length} stills saved across ${D.ads.length} executions.`);
-      return out;
     }
 
     download(blob, name) {
@@ -613,7 +631,7 @@
             <header>
               <p class="tag">Export studio</p>
               <h1>Demo stills</h1>
-              <p class="st-note">A floating phone playing a round nobody has played before. One run per execution, on nothing at all.</p>
+              <p class="st-note">A floating phone playing rounds nobody has played before. Every frame is its own car park, caught at its own moment, on nothing at all.</p>
             </header>
             <div class="st-row"><label>Format</label><div class="st-seg" id="stFormat"></div></div>
             <div class="st-row"><label>Backdrop</label><div class="st-seg" id="stBack"></div></div>
@@ -664,7 +682,7 @@
       seg(root.querySelector('#stAds'), [[true, 'All three'], [false, 'This one']], () => this.allAds, (v) => { this.allAds = v; });
       root.querySelector('#stNew').onclick = () => this.newDemo();
       root.querySelector('#stPng').onclick = () => (this.allAds
-        ? this.exportEveryAd(+this.el.count.value)
+        ? this.exportSet(+this.el.count.value)
         : this.exportStills(+this.el.count.value));
       this.el.buttons = [...root.querySelectorAll('.st-actions button, .st-chip, #stCount')];
     }
