@@ -27,10 +27,21 @@ const js = SCRIPTS.map((f) => {
 const TITLE = 'Back in smoothly — PlatanoMelón';
 const DESC = 'A rear-view-camera parking game. Tilt your phone, back into the bay, do not touch a thing.';
 
+const icon64 = read('../build/icon64.b64').trim();
+const icon180 = read('../build/icon180.b64').trim();
+
 const head = `<title>${TITLE}</title>
 <meta name="description" content="${DESC}">
 <meta name="theme-color" content="#060707">
-<meta name="color-scheme" content="dark">`;
+<meta name="color-scheme" content="dark">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<meta name="apple-mobile-web-app-title" content="Back in smoothly">
+<meta property="og:title" content="${TITLE}">
+<meta property="og:description" content="${DESC}">
+<meta property="og:type" content="website">
+<link rel="icon" type="image/png" href="data:image/png;base64,${icon64}">
+<link rel="apple-touch-icon" href="data:image/png;base64,${icon180}">`;
 
 const bodyContent = `${html}\n<style>\n${css}\n</style>\n<script>\n${js}\n</script>\n`;
 
