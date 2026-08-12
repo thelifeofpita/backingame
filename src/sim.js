@@ -163,8 +163,11 @@
   }
 
   function step(s, dt, input) {
+    /* A negative dt turns the exponential damping inside out and launches the
+       car into orbit. rAF's first timestamp can legitimately predate the
+       performance.now() taken just before it, so clamp rather than trust. */
+    dt = clamp(dt, 0, 1 / 30);
     if (s.phase !== 'drive') { s.t += dt; return s; }
-    dt = Math.min(dt, 1 / 30);
     const c = s.car, L = s.level;
     const steerIn = clamp(input.steer || 0, -1, 1);
     const brake = clamp(input.brake || 0, 0, 1);

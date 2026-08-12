@@ -28,15 +28,23 @@
     bayMin: -4, bayMax: 4,
   };
 
+  /* Muted metals for the crowd, a handful of loud ones so the row is not a
+     line of grey slabs. The lilac is the house car. */
   const CAR_PAINTS = [
     { name: 'silver',   body: [126, 131, 138], roof: [116, 121, 128] },
     { name: 'graphite', body: [58, 62, 70],    roof: [50, 54, 62] },
     { name: 'white',    body: [186, 189, 192], roof: [176, 180, 184] },
-    { name: 'navy',     body: [46, 58, 84],    roof: [40, 51, 75] },
     { name: 'black',    body: [34, 36, 40],    roof: [29, 31, 35] },
-    { name: 'sand',     body: [140, 128, 108], roof: [130, 119, 100] },
-    { name: 'lilac',    body: [122, 108, 152], roof: [112, 99, 141] }, // house car
-    { name: 'rust',     body: [122, 74, 54],   roof: [112, 68, 50] },
+  ];
+  const CAR_PAINTS_VIVID = [
+    { name: 'red',      body: [168, 44, 38],   roof: [150, 38, 33],  vivid: 1 },
+    { name: 'teal',     body: [38, 116, 118],  roof: [32, 103, 105], vivid: 1 },
+    { name: 'lilac',    body: [136, 118, 176], roof: [124, 108, 162], vivid: 1 },
+    { name: 'mustard',  body: [186, 146, 44],  roof: [168, 132, 40], vivid: 1 },
+    { name: 'navy',     body: [46, 62, 104],   roof: [40, 55, 93],   vivid: 1 },
+    { name: 'forest',   body: [48, 98, 68],    roof: [43, 88, 61],   vivid: 1 },
+    { name: 'orange',   body: [196, 106, 40],  roof: [176, 95, 36],  vivid: 1 },
+    { name: 'plum',     body: [104, 52, 92],   roof: [93, 46, 82],   vivid: 1 },
   ];
 
   const bayCenterX = (k) => k * GEO.bayW;
@@ -75,20 +83,18 @@
     /* --- neighbours ------------------------------------------------------ */
     const cars = [];
     const occupied = new Set([targetK]);
-    // the two flanking bays are what makes it a manoeuvre; keep at least one
+    // both flanking bays are always taken: that is what makes it a manoeuvre,
+    // and it is what frames the bay you are aiming at
     const flanks = [targetK - 1, targetK + 1];
-    let flankCount = 0;
-    for (const k of flanks) {
-      const keep = rng.chance(0.72 + 0.28 * d) || (flankCount === 0 && k === flanks[1]);
-      if (keep) { occupied.add(k); flankCount++; }
-    }
-    if (!flankCount) { occupied.add(flanks[rng.int(0, 1)]); flankCount = 1; }
+    for (const k of flanks) occupied.add(k);
 
     for (let k = GEO.bayMin; k <= GEO.bayMax; k++) {
       if (k === targetK) continue;
       if (Math.abs(k - targetK) > 1 && !rng.chance(0.62)) continue;
-      if (Math.abs(k - targetK) <= 1 && !occupied.has(k)) continue;
-      const paint = rng.pick(CAR_PAINTS);
+      // the two beside the gap are the ones you look at, so bias them loud
+      const near = Math.abs(k - targetK) === 1;
+      const paint = rng.chance(near ? 0.62 : 0.34)
+        ? rng.pick(CAR_PAINTS_VIVID) : rng.pick(CAR_PAINTS);
       // sloppy parkers: a slight skew and lateral drift, tighter when harder
       const skew = rng.range(-0.055, 0.055) * (0.6 + d);
       const drift = rng.range(-0.14, 0.14) * (0.5 + d) + (Math.abs(k - targetK) === 1 ? rng.range(-0.06, 0.06) : 0);
@@ -123,8 +129,8 @@
 
     /* --- ceiling light strips ------------------------------------------- */
     const lights = [
-      { z: 1.55, x0: GEO.xMin, x1: GEO.xMax, gap: rng.range(3.4, 4.2), phase: rng.range(0, 3) },
-      { z: 7.1,  x0: GEO.xMin, x1: GEO.xMax, gap: rng.range(3.6, 4.6), phase: rng.range(0, 3) },
+      { z: 1.55, x0: GEO.xMin, x1: GEO.xMax, gap: rng.range(3.4, 4.2), phase: rng.range(0, 3), warm: rng.range(-1, 1) },
+      { z: 7.1,  x0: GEO.xMin, x1: GEO.xMax, gap: rng.range(3.6, 4.6), phase: rng.range(0, 3), warm: rng.range(-1, 1) },
     ];
     const flicker = rng.chance(0.45) ? { x: bayCenterX(targetK + rng.int(-3, 3)), z: 1.55, seed: rng() * 100 } : null;
 
@@ -150,6 +156,17 @@
     for (let i = 0; i < 5; i++) {
       skids.push({ x: bayCenterX(rng.int(GEO.bayMin, GEO.bayMax)) + rng.range(-0.6, 0.6), z: rng.range(4.6, 7.4), len: rng.range(1.2, 3.4), rot: rng.range(-0.5, 0.5), a: rng.range(0.05, 0.12) });
     }
+
+    /* --- the things bolted to a car park wall ---------------------------- */
+    const exitSide = rng.sign();
+    const fixtures = {
+      exit: { x: bayCenterX(targetK + exitSide * rng.int(2, 3)) + rng.range(-0.3, 0.3), y: 2.34 },
+      hose: { x: bayCenterX(targetK - exitSide * rng.int(2, 4)) + rng.range(-0.2, 0.2), y: 1.18 },
+      accessibleK: (() => {
+        let k = targetK + rng.sign() * rng.int(2, 4);
+        return clamp(k, GEO.bayMin, GEO.bayMax);
+      })(),
+    };
 
     /* --- the poster ------------------------------------------------------ */
     const adIndex = rng.int(0, (NS.ads ? NS.ads.length : 3) - 1);
@@ -186,9 +203,9 @@
       seed, difficulty: d, rng,
       geo: GEO, car: CAR,
       cars, pillars, lights, flicker, stains, floorMarks, skids,
-      poster, start, target,
+      poster, start, target, fixtures,
       levelSign: rng.pick(['P-2', 'P-3', '-2', 'B2']),
-      exitSide: rng.sign(),
+      exitSide,
       occupied: [...occupied],
     };
   }

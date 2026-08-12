@@ -37,7 +37,7 @@
       ['view', 'boot', 'howto', 'result', 'brake', 'btnStart', 'btnAgain', 'btnCta', 'btnSound', 'btnHelp',
        'diagram', 'steps', 'heroAd', 'resultTitle', 'resultSub', 'resultLabel', 'resultDot',
        'scoreVal', 'scoreBar', 'scoreNote', 'live', 'cue',
-       'dash', 'feedSlot', 'timer', 'timerFill', 'timerNum', 'status', 'pdcSvg', 'distNum', 'ctrlHint'].forEach((id) => {
+       'dash', 'feedSlot', 'timer', 'timerFill', 'timerNum', 'status', 'pdcSvg', 'distNum'].forEach((id) => {
         this.el[id] = document.getElementById(id);
       });
       this.arcs = [...this.el.pdcSvg.querySelectorAll('.arc')];
@@ -116,7 +116,7 @@
       this.root.style.setProperty('--u', u.toFixed(4) + 'px');
       this.u = u;
 
-      const RESERVED = 322;                       // everything that is not the display
+      const RESERVED = 286;                       // everything that is not the display
       const pad = 12 * u;
       let feedW = W - pad * 2;
       let avail = H - RESERVED * u;
@@ -212,13 +212,11 @@
       const e = this.el;
       this.audio.unlock();
       if (this.coarse) {
-        if (!this.input.available.tilt) {
-          if (this.input.needsPermission()) await this.input.requestTilt();
-          else this.input.startTilt();
-        }
-        // give the sensor a beat to deliver its first sample
-        if (this.input.available.tilt || this.input.tiltLive()) {
-          await new Promise((r) => setTimeout(r, 120));
+        if (!this.input.tiltLive()) {
+          const asked = this.input.needsPermission();
+          const ok = asked ? await this.input.requestTilt() : this.input.startTilt();
+          // granting permission and getting a reading are two different moments
+          if (ok) await this.input.waitForSample(asked ? 1400 : 600);
         }
         if (this.input.tiltLive()) { this.input.mode = 'tilt'; this.input.calibrate(); }
         else this.input.mode = 'drag';
@@ -235,8 +233,6 @@
       this.phase = 'play';
       this.rounds++;
       this.audio.gear();
-      e.ctrlHint.textContent = this.input.mode === 'tilt' ? 'Tilt to steer · hold to brake'
-        : this.input.mode === 'drag' ? 'Drag anywhere to steer' : '← → steer · space brakes';
       this.say(this.input.mode === 'tilt'
         ? 'Reversing. Tilt to steer, hold brake to stop.'
         : this.input.mode === 'drag'
@@ -310,7 +306,7 @@
     loop() {
       let last = performance.now();
       const frame = (now) => {
-        const dt = Math.min(0.05, (now - last) / 1000) || 0.016;
+        const dt = clamp((now - last) / 1000, 0, 0.05) || 0.016;
         last = now;
         this.time += dt;
         this.update(dt);

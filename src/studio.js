@@ -27,7 +27,7 @@
     const u = Math.min(h / 880, w / 430);
     const pad = 12 * u;
     let fw = w - pad * 2;
-    const avail = h - 322 * u;
+    const avail = h - 286 * u;
     let fh = clamp(avail, fw * 0.70, fw * 1.15);
     if (avail < fw * 0.70) { fh = Math.max(avail, 110 * u); fw = Math.min(fw, fh / 0.70); }
     const fy = pad + (34 + 8 + 3 + 8) * u;
@@ -132,7 +132,7 @@
     ctx.letterSpacing = '0px';
 
     /* --- brake ---------------------------------------------------------- */
-    const by = h - L.pad - 34 * u - 62 * u, br = 48 * u;
+    const by = h - L.pad - 62 * u, br = 48 * u;
     const bg = ctx.createRadialGradient(w / 2, by - br * 0.16, 2, w / 2, by, br);
     const on = st.brake > 0.35;
     bg.addColorStop(0, on ? 'rgba(255,46,18,0.9)' : 'rgba(255,46,18,0.24)');
@@ -153,24 +153,6 @@
     ctx.fillStyle = '#fff';
     ctx.fillText('BRAKE', w / 2, by + 18 * u);
 
-    /* --- footer --------------------------------------------------------- */
-    ctx.font = font(13, 700);
-    ctx.letterSpacing = '0px';
-    ctx.fillStyle = D.PAL.pink;
-    const bm = 'PlatanoMelón', tag = 'BACK IN SMOOTHLY.';
-    ctx.font = font(9.5, 600);
-    const tagW = ctx.measureText(tag).width + 2.4 * u * tag.length;
-    ctx.font = font(13, 700);
-    const bmW = ctx.measureText(bm).width;
-    const total = bmW + 9 * u + tagW;
-    const fx0 = w / 2 - total / 2;
-    ctx.textAlign = 'left';
-    ctx.fillText(bm, fx0, h - L.pad - 8 * u);
-    ctx.font = font(9.5, 600);
-    ctx.letterSpacing = (2.4 * u).toFixed(2) + 'px';
-    ctx.fillStyle = 'rgba(244,243,239,0.34)';
-    ctx.fillText(tag, fx0 + bmW + 9 * u, h - L.pad - 8 * u);
-    ctx.letterSpacing = '0px';
     ctx.textAlign = 'left';
   }
 
@@ -499,7 +481,7 @@
       const frame = (now) => {
         this._raf = requestAnimationFrame(frame);
         if (this.busy) { last = now; return; }
-        const dt = Math.min(0.05, (now - last) / 1000) || 0.016;
+        const dt = clamp((now - last) / 1000, 0, 0.05) || 0.016;
         last = now;
         this.time += dt;
         this.stepSim(dt);

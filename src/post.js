@@ -66,6 +66,9 @@
       col.b = texture2D(uTex, clamp(uvB, 0.001, 0.999)).b;
 
       // --- bloom: strip lights blooming into a cheap sensor -------------
+      /* Only genuine light sources are allowed to bloom. Keying off the
+         brightest channel made saturated yellow — the poster — glow like a
+         lamp and swallow its own type; luminance keeps it to the tubes. */
       if (uBloom > 0.001) {
         vec3 b = vec3(0.0);
         vec2 px = 2.6 / uSrc;
@@ -73,8 +76,8 @@
           float a = float(i) * 0.7853981;
           vec2 o = vec2(cos(a), sin(a)) * px * 2.2;
           vec3 s = texture2D(uTex, clamp(uvG + o, 0.001, 0.999)).rgb;
-          float l = max(max(s.r, s.g), s.b);
-          b += s * smoothstep(0.68, 1.0, l);
+          float l = dot(s, vec3(0.299, 0.587, 0.114));
+          b += s * smoothstep(0.90, 1.0, l);
         }
         col += b * (uBloom / 8.0);
       }
@@ -266,7 +269,7 @@
     scan: 0.5,
     grain: 0.05,
     vignette: 0.8,
-    bloom: 0.42,
+    bloom: 0.22,
     gain: 1.03,
     sat: 0.78,
     lines: 240,

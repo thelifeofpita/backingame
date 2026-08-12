@@ -88,13 +88,7 @@
           </svg>
           <span>Brake</span>
         </button>
-        <p class="hint" id="ctrlHint"></p>
       </div>
-
-      <footer id="dashFoot">
-        <span class="brandmark">PlatanoMelón</span>
-        <span class="tagline">Back in smoothly.</span>
-      </footer>
     </div>
 
     <!-- the camera feed is painted here, over the dashboard ---------------- -->
@@ -192,6 +186,14 @@
 }
 
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+/* Nothing here is text to be selected — holding the brake should not start a
+   selection or pop a callout, on either a phone or a trackpad. */
+body, button, .btn, #dash, .layer {
+  -webkit-user-select: none; user-select: none; -webkit-touch-callout: none;
+}
+button, .btn { touch-action: manipulation; }
+#brake { touch-action: none; }
+#result .card p, #result .card h2 { -webkit-user-select: text; user-select: text; }
 html, body { height: 100%; margin: 0; }
 body {
   background: #060707;
@@ -347,7 +349,7 @@ kbd {
 #pdc .dist b { display: block; font: 700 calc(var(--u) * 30)/1 var(--sans); letter-spacing: -0.03em; font-variant-numeric: tabular-nums; }
 #pdc .dist span { display: block; font: 600 calc(var(--u) * 9)/1 var(--osd); letter-spacing: 0.16em; text-transform: uppercase; color: rgba(244,243,239,0.56); margin-top: calc(var(--u) * 5); }
 
-#brakeWrap { flex: 1 1 auto; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: calc(var(--u) * 8); min-height: calc(var(--u) * 96); }
+#brakeWrap { flex: 1 1 auto; display: flex; align-items: center; justify-content: center; min-height: calc(var(--u) * 96); }
 #brake {
   width: calc(var(--u) * 96); height: calc(var(--u) * 96); border-radius: 50%;
   border: calc(var(--u) * 2) solid rgba(255,46,18,0.5);
@@ -363,12 +365,6 @@ kbd {
   transform: scale(0.945); box-shadow: 0 0 calc(var(--u) * 26) rgba(255,46,18,0.45);
 }
 #brake:disabled { opacity: 0.3; cursor: default; }
-.hint { margin: 0; font: 600 calc(var(--u) * 9)/1.3 var(--osd); letter-spacing: 0.12em; text-transform: uppercase; color: rgba(244,243,239,0.52); text-align: center; }
-
-#dashFoot { display: flex; align-items: baseline; justify-content: center; gap: calc(var(--u) * 9); flex: 0 0 auto; }
-#dashFoot .brandmark { font-size: calc(var(--u) * 13); }
-#dashFoot .tagline { font: 600 calc(var(--u) * 9.5)/1 var(--osd); letter-spacing: 0.14em; text-transform: uppercase; color: rgba(244,243,239,0.52); }
-
 #app[data-phase="reveal"] #dash > *:not(#feedSlot), #app[data-phase="result"] #dash > *:not(#feedSlot) { opacity: 0.12; transition: opacity .5s ease; }
 
 /* ---- generic overlay ---------------------------------------------------- */
@@ -863,15 +859,23 @@ window.PM_ADS = [
     bayMin: -4, bayMax: 4,
   };
 
+  /* Muted metals for the crowd, a handful of loud ones so the row is not a
+     line of grey slabs. The lilac is the house car. */
   const CAR_PAINTS = [
     { name: 'silver',   body: [126, 131, 138], roof: [116, 121, 128] },
     { name: 'graphite', body: [58, 62, 70],    roof: [50, 54, 62] },
     { name: 'white',    body: [186, 189, 192], roof: [176, 180, 184] },
-    { name: 'navy',     body: [46, 58, 84],    roof: [40, 51, 75] },
     { name: 'black',    body: [34, 36, 40],    roof: [29, 31, 35] },
-    { name: 'sand',     body: [140, 128, 108], roof: [130, 119, 100] },
-    { name: 'lilac',    body: [122, 108, 152], roof: [112, 99, 141] }, // house car
-    { name: 'rust',     body: [122, 74, 54],   roof: [112, 68, 50] },
+  ];
+  const CAR_PAINTS_VIVID = [
+    { name: 'red',      body: [168, 44, 38],   roof: [150, 38, 33],  vivid: 1 },
+    { name: 'teal',     body: [38, 116, 118],  roof: [32, 103, 105], vivid: 1 },
+    { name: 'lilac',    body: [136, 118, 176], roof: [124, 108, 162], vivid: 1 },
+    { name: 'mustard',  body: [186, 146, 44],  roof: [168, 132, 40], vivid: 1 },
+    { name: 'navy',     body: [46, 62, 104],   roof: [40, 55, 93],   vivid: 1 },
+    { name: 'forest',   body: [48, 98, 68],    roof: [43, 88, 61],   vivid: 1 },
+    { name: 'orange',   body: [196, 106, 40],  roof: [176, 95, 36],  vivid: 1 },
+    { name: 'plum',     body: [104, 52, 92],   roof: [93, 46, 82],   vivid: 1 },
   ];
 
   const bayCenterX = (k) => k * GEO.bayW;
@@ -910,20 +914,18 @@ window.PM_ADS = [
     /* --- neighbours ------------------------------------------------------ */
     const cars = [];
     const occupied = new Set([targetK]);
-    // the two flanking bays are what makes it a manoeuvre; keep at least one
+    // both flanking bays are always taken: that is what makes it a manoeuvre,
+    // and it is what frames the bay you are aiming at
     const flanks = [targetK - 1, targetK + 1];
-    let flankCount = 0;
-    for (const k of flanks) {
-      const keep = rng.chance(0.72 + 0.28 * d) || (flankCount === 0 && k === flanks[1]);
-      if (keep) { occupied.add(k); flankCount++; }
-    }
-    if (!flankCount) { occupied.add(flanks[rng.int(0, 1)]); flankCount = 1; }
+    for (const k of flanks) occupied.add(k);
 
     for (let k = GEO.bayMin; k <= GEO.bayMax; k++) {
       if (k === targetK) continue;
       if (Math.abs(k - targetK) > 1 && !rng.chance(0.62)) continue;
-      if (Math.abs(k - targetK) <= 1 && !occupied.has(k)) continue;
-      const paint = rng.pick(CAR_PAINTS);
+      // the two beside the gap are the ones you look at, so bias them loud
+      const near = Math.abs(k - targetK) === 1;
+      const paint = rng.chance(near ? 0.62 : 0.34)
+        ? rng.pick(CAR_PAINTS_VIVID) : rng.pick(CAR_PAINTS);
       // sloppy parkers: a slight skew and lateral drift, tighter when harder
       const skew = rng.range(-0.055, 0.055) * (0.6 + d);
       const drift = rng.range(-0.14, 0.14) * (0.5 + d) + (Math.abs(k - targetK) === 1 ? rng.range(-0.06, 0.06) : 0);
@@ -958,8 +960,8 @@ window.PM_ADS = [
 
     /* --- ceiling light strips ------------------------------------------- */
     const lights = [
-      { z: 1.55, x0: GEO.xMin, x1: GEO.xMax, gap: rng.range(3.4, 4.2), phase: rng.range(0, 3) },
-      { z: 7.1,  x0: GEO.xMin, x1: GEO.xMax, gap: rng.range(3.6, 4.6), phase: rng.range(0, 3) },
+      { z: 1.55, x0: GEO.xMin, x1: GEO.xMax, gap: rng.range(3.4, 4.2), phase: rng.range(0, 3), warm: rng.range(-1, 1) },
+      { z: 7.1,  x0: GEO.xMin, x1: GEO.xMax, gap: rng.range(3.6, 4.6), phase: rng.range(0, 3), warm: rng.range(-1, 1) },
     ];
     const flicker = rng.chance(0.45) ? { x: bayCenterX(targetK + rng.int(-3, 3)), z: 1.55, seed: rng() * 100 } : null;
 
@@ -985,6 +987,17 @@ window.PM_ADS = [
     for (let i = 0; i < 5; i++) {
       skids.push({ x: bayCenterX(rng.int(GEO.bayMin, GEO.bayMax)) + rng.range(-0.6, 0.6), z: rng.range(4.6, 7.4), len: rng.range(1.2, 3.4), rot: rng.range(-0.5, 0.5), a: rng.range(0.05, 0.12) });
     }
+
+    /* --- the things bolted to a car park wall ---------------------------- */
+    const exitSide = rng.sign();
+    const fixtures = {
+      exit: { x: bayCenterX(targetK + exitSide * rng.int(2, 3)) + rng.range(-0.3, 0.3), y: 2.34 },
+      hose: { x: bayCenterX(targetK - exitSide * rng.int(2, 4)) + rng.range(-0.2, 0.2), y: 1.18 },
+      accessibleK: (() => {
+        let k = targetK + rng.sign() * rng.int(2, 4);
+        return clamp(k, GEO.bayMin, GEO.bayMax);
+      })(),
+    };
 
     /* --- the poster ------------------------------------------------------ */
     const adIndex = rng.int(0, (NS.ads ? NS.ads.length : 3) - 1);
@@ -1021,9 +1034,9 @@ window.PM_ADS = [
       seed, difficulty: d, rng,
       geo: GEO, car: CAR,
       cars, pillars, lights, flicker, stains, floorMarks, skids,
-      poster, start, target,
+      poster, start, target, fixtures,
       levelSign: rng.pick(['P-2', 'P-3', '-2', 'B2']),
-      exitSide: rng.sign(),
+      exitSide,
       occupied: [...occupied],
     };
   }
@@ -1197,8 +1210,11 @@ window.PM_ADS = [
   }
 
   function step(s, dt, input) {
+    /* A negative dt turns the exponential damping inside out and launches the
+       car into orbit. rAF's first timestamp can legitimately predate the
+       performance.now() taken just before it, so clamp rather than trust. */
+    dt = clamp(dt, 0, 1 / 30);
     if (s.phase !== 'drive') { s.t += dt; return s; }
-    dt = Math.min(dt, 1 / 30);
     const c = s.car, L = s.level;
     const steerIn = clamp(input.steer || 0, -1, 1);
     const brake = clamp(input.brake || 0, 0, 1);
@@ -1512,23 +1528,48 @@ window.PM_ADS = [
     }
     // level marker, in house lilac
     const sx = W.bayCenterX(L.target.k + 3 * L.exitSide);
-    drawWallText(ctx, cam, L.levelSign, sx, 2.28, 0.46, PAL.lilac, 0.5);
-    drawWallText(ctx, cam, 'SALIDA', sx, 1.86, 0.2, 'rgba(200,205,200,0.55)', 0.4);
+    drawWallText(ctx, cam, L.levelSign, sx, 2.30, 0.44, PAL.lilac, 0.55);
+
+    // bay numbers, stencilled over each bay
+    for (let k = g.bayMin; k <= g.bayMax; k++) {
+      const bx = W.bayCenterX(k);
+      if (Math.abs(bx - cam.pos.x) > 7.5) continue;
+      drawWallText(ctx, cam, String(k + 12), bx, 2.52, 0.30, 'rgba(214,216,208,0.75)',
+        0.55 * (1 - fogAmt(dist2(cam, bx, 0))));
+    }
+
+    // the green box that is on every car park wall, and the red one beside it
+    const F = L.fixtures;
+    if (F) {
+      wallPlate(ctx, cam, F.exit.x, F.exit.y, 0.62, 0.24, [30, 168, 62], 0.55);
+      drawWallText(ctx, cam, 'SALIDA', F.exit.x, F.exit.y, 0.13, '#ffffff', 0.9);
+      wallPlate(ctx, cam, F.hose.x, F.hose.y, 0.42, 0.62, [168, 42, 34], 0.12);
+      wallPlate(ctx, cam, F.hose.x, F.hose.y, 0.34, 0.54, [128, 32, 26], 0.06);
+    }
   }
 
-  const _txtCv = document.createElement('canvas');
-  const _txtCtx = _txtCv.getContext('2d');
+  const _txtCache = new Map();
+  function textCanvas(text, color) {
+    const key = text + '|' + color;
+    let cv = _txtCache.get(key);
+    if (cv) return cv;
+    cv = document.createElement('canvas');
+    const c = cv.getContext('2d');
+    const pad = 8, fs = 64, font = `700 ${fs}px 'DM Sans', ui-sans-serif, system-ui, sans-serif`;
+    c.font = font;
+    cv.width = Math.ceil(c.measureText(text).width) + pad * 2;
+    cv.height = fs + pad * 2;
+    c.font = font;
+    c.fillStyle = color;
+    c.textBaseline = 'middle';
+    c.letterSpacing = '2px';
+    c.fillText(text, pad, cv.height / 2);
+    if (_txtCache.size > 40) _txtCache.clear();
+    _txtCache.set(key, cv);
+    return cv;
+  }
   function drawWallText(ctx, cam, text, cx, cy, h, color, alpha) {
-    const pad = 8, fs = 64;
-    _txtCtx.font = `700 ${fs}px 'DM Sans', ui-sans-serif, system-ui, sans-serif`;
-    const wpx = Math.ceil(_txtCtx.measureText(text).width) + pad * 2;
-    _txtCv.width = wpx; _txtCv.height = fs + pad * 2;
-    _txtCtx.clearRect(0, 0, _txtCv.width, _txtCv.height);
-    _txtCtx.font = `700 ${fs}px 'DM Sans', ui-sans-serif, system-ui, sans-serif`;
-    _txtCtx.fillStyle = color;
-    _txtCtx.textBaseline = 'middle';
-    _txtCtx.letterSpacing = '2px';
-    _txtCtx.fillText(text, pad, _txtCv.height / 2);
+    const _txtCv = textCanvas(text, color);
     const ar = _txtCv.width / _txtCv.height;
     const w = h * ar;
     const d = dist2(cam, cx, 0);
@@ -1538,6 +1579,18 @@ window.PM_ADS = [
       { x: cx + w / 2, y: cy - h / 2, z: 0.004 }, { x: cx - w / 2, y: cy - h / 2, z: 0.004 },
       { x: cx - w / 2, y: cy + h / 2, z: 0.004 }, { x: cx + w / 2, y: cy + h / 2, z: 0.004 },
     ], { subdiv: 3, alpha: a });
+  }
+
+  /* a lit box or a painted cabinet, flat on the wall */
+  function wallPlate(ctx, cam, cx, cy, w, h, col, glow) {
+    const d = dist2(cam, cx, 0);
+    const f = 1 - fogAmt(d);
+    if (f < 0.05) return;
+    const k = 0.55 + 0.45 * f + (glow || 0);
+    C.fillPoly(ctx, cam, [
+      { x: cx - w / 2, y: cy - h / 2, z: 0.005 }, { x: cx + w / 2, y: cy - h / 2, z: 0.005 },
+      { x: cx + w / 2, y: cy + h / 2, z: 0.005 }, { x: cx - w / 2, y: cy + h / 2, z: 0.005 },
+    ], rgb(clamp(col[0] * k, 0, 255), clamp(col[1] * k, 0, 255), clamp(col[2] * k, 0, 255)));
   }
 
   /* ---- the poster -------------------------------------------------------- */
@@ -1599,10 +1652,12 @@ window.PM_ADS = [
           ? (Math.sin(t * 31 + L.flicker.seed) > 0.55 ? 0.25 : 1) : 1;
         const d = dist2(cam, x + 0.75, ln.z);
         const k = (1 - fogAmt(d) * 0.8) * flick;
+        // old tubes and new ones never match: one row runs warm, the other cold
+        const wm = ln.warm || 0;
         C.fillPoly(ctx, cam, [
           { x, y: g.ceilY - 0.02, z: ln.z - 0.09 }, { x: x + 1.5, y: g.ceilY - 0.02, z: ln.z - 0.09 },
           { x: x + 1.5, y: g.ceilY - 0.02, z: ln.z + 0.09 }, { x, y: g.ceilY - 0.02, z: ln.z + 0.09 },
-        ], rgb(238 * k + 8, 244 * k + 8, 232 * k + 8));
+        ], rgb((238 + wm * 14) * k + 8, 244 * k + 8, (232 - wm * 22) * k + 8));
       }
     }
   }
@@ -1638,7 +1693,7 @@ window.PM_ADS = [
             const ang = (k / 14) * Math.PI * 2;
             pts.push({ x: cx + Math.cos(ang) * rad * 1.1, y: 0.001, z: ln.z + Math.sin(ang) * rad });
           }
-          C.fillPoly(ctx, cam, pts, `rgba(190,200,190,${alpha})`);
+          C.fillPoly(ctx, cam, pts, `rgba(${190 + (ln.warm || 0) * 22},200,${190 - (ln.warm || 0) * 26},${alpha})`);
         }
       }
     }
@@ -1674,7 +1729,22 @@ window.PM_ADS = [
       paintStripe(ctx, cam, x, g.kerbZ + 0.05, x, g.laneZ0, 0.11, `rgba(214,214,206,${wear})`);
     }
     // the aisle line along the mouth of the bays
-    paintStripe(ctx, cam, g.xMin, g.laneZ0, g.xMax, g.laneZ0, 0.11, `rgba(214,214,206,${0.42})`, true);
+    paintStripe(ctx, cam, g.xMin, g.laneZ0, g.xMax, g.laneZ0, 0.10, 'rgba(214,214,206,0.34)', true);
+
+    // one bay painted blue, as every car park has
+    const ak = L.fixtures ? L.fixtures.accessibleK : null;
+    if (ak !== null && ak !== L.target.k && Math.abs(W.bayCenterX(ak) - cam.pos.x) < 9) {
+      const ax = W.bayCenterX(ak);
+      const af = 1 - fogAmt(dist2(cam, ax, 3));
+      C.fillPoly(ctx, cam, [
+        { x: ax - g.bayW * 0.36, y: 0.003, z: 1.5 }, { x: ax + g.bayW * 0.36, y: 0.003, z: 1.5 },
+        { x: ax + g.bayW * 0.36, y: 0.003, z: 4.3 }, { x: ax - g.bayW * 0.36, y: 0.003, z: 4.3 },
+      ], `rgba(38,86,168,${0.55 * af})`);
+      C.fillPoly(ctx, cam, [
+        { x: ax - 0.30, y: 0.004, z: 2.35 }, { x: ax + 0.30, y: 0.004, z: 2.35 },
+        { x: ax + 0.30, y: 0.004, z: 3.45 }, { x: ax - 0.30, y: 0.004, z: 3.45 },
+      ], `rgba(228,232,238,${0.6 * af})`);
+    }
 
     /* --- wheel stops: why nobody parks with their bumper on the wall ---- */
     for (let k = g.bayMin; k <= g.bayMax; k++) {
@@ -1692,21 +1762,23 @@ window.PM_ADS = [
     const tgt = L.target;
     const live = st && st.phase === 'drive';
     const ok = st && st.inBox && st.aligned;
-    const col = ok ? PAL.greenRGB : PAL.yellowRGB;
+    // house lilac, not guide-line yellow: the bay you want and the path you are
+    // taking are two different pieces of information and should not share a hue
+    const col = ok ? PAL.greenRGB : PAL.lilacRGB;
     const pulse = live ? 0.55 + 0.45 * Math.sin(t * 3.4) : 0.85;
     // fade the markings out as the car arrives — the poster is the payoff
     const close = st ? clamp((st.wallGap - 0.8) / 1.7, 0.12, 1) : 1;
-    const oa = (ok ? 0.72 : 0.34) * (live ? 1 : 0.7) * close;
-    paintStripe(ctx, cam, tgt.cx - tgt.halfW, g.kerbZ + 0.05, tgt.cx - tgt.halfW, g.laneZ0, 0.105, rgbaArr(col, oa));
-    paintStripe(ctx, cam, tgt.cx + tgt.halfW, g.kerbZ + 0.05, tgt.cx + tgt.halfW, g.laneZ0, 0.105, rgbaArr(col, oa));
-    paintStripe(ctx, cam, tgt.cx - tgt.halfW, g.kerbZ + 0.06, tgt.cx + tgt.halfW, g.kerbZ + 0.06, 0.105, rgbaArr(col, oa));
+    const oa = (ok ? 0.72 : 0.52) * (live ? 1 : 0.7) * close;
+    paintStripe(ctx, cam, tgt.cx - tgt.halfW, g.kerbZ + 0.05, tgt.cx - tgt.halfW, g.laneZ0, 0.095, rgbaArr(col, oa));
+    paintStripe(ctx, cam, tgt.cx + tgt.halfW, g.kerbZ + 0.05, tgt.cx + tgt.halfW, g.laneZ0, 0.095, rgbaArr(col, oa));
+    paintStripe(ctx, cam, tgt.cx - tgt.halfW, g.kerbZ + 0.06, tgt.cx + tgt.halfW, g.kerbZ + 0.06, 0.095, rgbaArr(col, oa));
     // chevrons flowing towards the wall — an invitation, not a floodlight,
     // and they bow out once the car is close enough to see for itself
     const near = st ? clamp((st.wallGap - 1.3) / 1.8, 0, 1) : 1;
     for (let i = 0; i < 3; i++) {
       const base = 1.45 + i * 1.0;
       const phase = live ? ((t * 0.9 + i * 0.33) % 1) : 0.5;
-      const a = (0.14 + 0.30 * (1 - Math.abs(phase * 2 - 1))) * pulse * near;
+      const a = (0.20 + 0.40 * (1 - Math.abs(phase * 2 - 1))) * pulse * near;
       if (a < 0.02) continue;
       chevron(ctx, cam, tgt.cx, base, 0.58, 0.30, rgbaArr(col, a));
     }
@@ -2199,6 +2271,9 @@ window.PM_ADS = [
       col.b = texture2D(uTex, clamp(uvB, 0.001, 0.999)).b;
 
       // --- bloom: strip lights blooming into a cheap sensor -------------
+      /* Only genuine light sources are allowed to bloom. Keying off the
+         brightest channel made saturated yellow — the poster — glow like a
+         lamp and swallow its own type; luminance keeps it to the tubes. */
       if (uBloom > 0.001) {
         vec3 b = vec3(0.0);
         vec2 px = 2.6 / uSrc;
@@ -2206,8 +2281,8 @@ window.PM_ADS = [
           float a = float(i) * 0.7853981;
           vec2 o = vec2(cos(a), sin(a)) * px * 2.2;
           vec3 s = texture2D(uTex, clamp(uvG + o, 0.001, 0.999)).rgb;
-          float l = max(max(s.r, s.g), s.b);
-          b += s * smoothstep(0.68, 1.0, l);
+          float l = dot(s, vec3(0.299, 0.587, 0.114));
+          b += s * smoothstep(0.90, 1.0, l);
         }
         col += b * (uBloom / 8.0);
       }
@@ -2399,7 +2474,7 @@ window.PM_ADS = [
     scan: 0.5,
     grain: 0.05,
     vignette: 0.8,
-    bloom: 0.42,
+    bloom: 0.22,
     gain: 1.03,
     sat: 0.78,
     lines: 240,
@@ -2648,9 +2723,26 @@ window.PM_ADS = [
     }
     tiltLive() { return this.available.tilt && performance.now() - this._lastEvent < 1200; }
 
+    /* Permission granting and the first sensor reading are separate events:
+       the sensor can take a few hundred milliseconds to deliver anything. The
+       old code checked immediately, found nothing, and fell back to dragging
+       for the whole first round. Wait for a real sample instead. */
+    waitForSample(ms) {
+      if (this.tiltLive()) return Promise.resolve(true);
+      return new Promise((resolve) => {
+        const t0 = performance.now();
+        const tick = () => {
+          if (this.tiltLive()) return resolve(true);
+          if (performance.now() - t0 > (ms || 1200)) return resolve(false);
+          setTimeout(tick, 40);
+        };
+        tick();
+      });
+    }
+
     /* ---- drag (also the accessible alternative to tilting) ------------- */
     attachDrag(el) {
-      const down = (x) => { this._dragActive = true; this._dragBase = x - this._dragSteer * this._dragSpan(el); };
+      const down = (x) => { this._dragActive = true; this._dragUsed = true; this._dragBase = x - this._dragSteer * this._dragSpan(el); };
       const move = (x) => {
         if (!this._dragActive) return;
         this._dragSteer = clamp((x - this._dragBase) / this._dragSpan(el), -1, 1);
@@ -2667,6 +2759,13 @@ window.PM_ADS = [
 
     /* ---- read --------------------------------------------------------- */
     update(dt) {
+      // sensor showed up after we had already fallen back? take it, quietly,
+      // but only while the player has not started dragging
+      if (this.mode === 'drag' && !this._dragUsed && this.tiltLive() && !this._lockMode) {
+        this.mode = 'tilt';
+        this.calibrate();
+        if (this.onModeChange) this.onModeChange('tilt');
+      }
       let target = 0;
       const useTilt = this.mode === 'tilt' && this.tiltLive();
       if (useTilt) {
@@ -2688,7 +2787,11 @@ window.PM_ADS = [
       this.brake = damp(this.brake, b, 22, dt);
       return { steer: this.steer, brake: this.brake };
     }
-    reset() { this.steer = 0; this.brake = 0; this._dragSteer = 0; this._extBrake = 0; this._keys.l = this._keys.r = this._keys.b = 0; }
+    reset() {
+      this.steer = 0; this.brake = 0; this._dragSteer = 0; this._extBrake = 0;
+      this._dragUsed = false;
+      this._keys.l = this._keys.r = this._keys.b = 0;
+    }
   }
 
   NS.Input = Input;
@@ -2885,7 +2988,7 @@ window.PM_ADS = [
       ['view', 'boot', 'howto', 'result', 'brake', 'btnStart', 'btnAgain', 'btnCta', 'btnSound', 'btnHelp',
        'diagram', 'steps', 'heroAd', 'resultTitle', 'resultSub', 'resultLabel', 'resultDot',
        'scoreVal', 'scoreBar', 'scoreNote', 'live', 'cue',
-       'dash', 'feedSlot', 'timer', 'timerFill', 'timerNum', 'status', 'pdcSvg', 'distNum', 'ctrlHint'].forEach((id) => {
+       'dash', 'feedSlot', 'timer', 'timerFill', 'timerNum', 'status', 'pdcSvg', 'distNum'].forEach((id) => {
         this.el[id] = document.getElementById(id);
       });
       this.arcs = [...this.el.pdcSvg.querySelectorAll('.arc')];
@@ -2964,7 +3067,7 @@ window.PM_ADS = [
       this.root.style.setProperty('--u', u.toFixed(4) + 'px');
       this.u = u;
 
-      const RESERVED = 322;                       // everything that is not the display
+      const RESERVED = 286;                       // everything that is not the display
       const pad = 12 * u;
       let feedW = W - pad * 2;
       let avail = H - RESERVED * u;
@@ -3060,13 +3163,11 @@ window.PM_ADS = [
       const e = this.el;
       this.audio.unlock();
       if (this.coarse) {
-        if (!this.input.available.tilt) {
-          if (this.input.needsPermission()) await this.input.requestTilt();
-          else this.input.startTilt();
-        }
-        // give the sensor a beat to deliver its first sample
-        if (this.input.available.tilt || this.input.tiltLive()) {
-          await new Promise((r) => setTimeout(r, 120));
+        if (!this.input.tiltLive()) {
+          const asked = this.input.needsPermission();
+          const ok = asked ? await this.input.requestTilt() : this.input.startTilt();
+          // granting permission and getting a reading are two different moments
+          if (ok) await this.input.waitForSample(asked ? 1400 : 600);
         }
         if (this.input.tiltLive()) { this.input.mode = 'tilt'; this.input.calibrate(); }
         else this.input.mode = 'drag';
@@ -3083,8 +3184,6 @@ window.PM_ADS = [
       this.phase = 'play';
       this.rounds++;
       this.audio.gear();
-      e.ctrlHint.textContent = this.input.mode === 'tilt' ? 'Tilt to steer · hold to brake'
-        : this.input.mode === 'drag' ? 'Drag anywhere to steer' : '← → steer · space brakes';
       this.say(this.input.mode === 'tilt'
         ? 'Reversing. Tilt to steer, hold brake to stop.'
         : this.input.mode === 'drag'
@@ -3158,7 +3257,7 @@ window.PM_ADS = [
     loop() {
       let last = performance.now();
       const frame = (now) => {
-        const dt = Math.min(0.05, (now - last) / 1000) || 0.016;
+        const dt = clamp((now - last) / 1000, 0, 0.05) || 0.016;
         last = now;
         this.time += dt;
         this.update(dt);
@@ -3349,7 +3448,7 @@ window.PM_ADS = [
     const u = Math.min(h / 880, w / 430);
     const pad = 12 * u;
     let fw = w - pad * 2;
-    const avail = h - 322 * u;
+    const avail = h - 286 * u;
     let fh = clamp(avail, fw * 0.70, fw * 1.15);
     if (avail < fw * 0.70) { fh = Math.max(avail, 110 * u); fw = Math.min(fw, fh / 0.70); }
     const fy = pad + (34 + 8 + 3 + 8) * u;
@@ -3454,7 +3553,7 @@ window.PM_ADS = [
     ctx.letterSpacing = '0px';
 
     /* --- brake ---------------------------------------------------------- */
-    const by = h - L.pad - 34 * u - 62 * u, br = 48 * u;
+    const by = h - L.pad - 62 * u, br = 48 * u;
     const bg = ctx.createRadialGradient(w / 2, by - br * 0.16, 2, w / 2, by, br);
     const on = st.brake > 0.35;
     bg.addColorStop(0, on ? 'rgba(255,46,18,0.9)' : 'rgba(255,46,18,0.24)');
@@ -3475,24 +3574,6 @@ window.PM_ADS = [
     ctx.fillStyle = '#fff';
     ctx.fillText('BRAKE', w / 2, by + 18 * u);
 
-    /* --- footer --------------------------------------------------------- */
-    ctx.font = font(13, 700);
-    ctx.letterSpacing = '0px';
-    ctx.fillStyle = D.PAL.pink;
-    const bm = 'PlatanoMelón', tag = 'BACK IN SMOOTHLY.';
-    ctx.font = font(9.5, 600);
-    const tagW = ctx.measureText(tag).width + 2.4 * u * tag.length;
-    ctx.font = font(13, 700);
-    const bmW = ctx.measureText(bm).width;
-    const total = bmW + 9 * u + tagW;
-    const fx0 = w / 2 - total / 2;
-    ctx.textAlign = 'left';
-    ctx.fillText(bm, fx0, h - L.pad - 8 * u);
-    ctx.font = font(9.5, 600);
-    ctx.letterSpacing = (2.4 * u).toFixed(2) + 'px';
-    ctx.fillStyle = 'rgba(244,243,239,0.34)';
-    ctx.fillText(tag, fx0 + bmW + 9 * u, h - L.pad - 8 * u);
-    ctx.letterSpacing = '0px';
     ctx.textAlign = 'left';
   }
 
@@ -3821,7 +3902,7 @@ window.PM_ADS = [
       const frame = (now) => {
         this._raf = requestAnimationFrame(frame);
         if (this.busy) { last = now; return; }
-        const dt = Math.min(0.05, (now - last) / 1000) || 0.016;
+        const dt = clamp((now - last) / 1000, 0, 0.05) || 0.016;
         last = now;
         this.time += dt;
         this.stepSim(dt);

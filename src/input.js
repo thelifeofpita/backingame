@@ -124,9 +124,26 @@
     }
     tiltLive() { return this.available.tilt && performance.now() - this._lastEvent < 1200; }
 
+    /* Permission granting and the first sensor reading are separate events:
+       the sensor can take a few hundred milliseconds to deliver anything. The
+       old code checked immediately, found nothing, and fell back to dragging
+       for the whole first round. Wait for a real sample instead. */
+    waitForSample(ms) {
+      if (this.tiltLive()) return Promise.resolve(true);
+      return new Promise((resolve) => {
+        const t0 = performance.now();
+        const tick = () => {
+          if (this.tiltLive()) return resolve(true);
+          if (performance.now() - t0 > (ms || 1200)) return resolve(false);
+          setTimeout(tick, 40);
+        };
+        tick();
+      });
+    }
+
     /* ---- drag (also the accessible alternative to tilting) ------------- */
     attachDrag(el) {
-      const down = (x) => { this._dragActive = true; this._dragBase = x - this._dragSteer * this._dragSpan(el); };
+      const down = (x) => { this._dragActive = true; this._dragUsed = true; this._dragBase = x - this._dragSteer * this._dragSpan(el); };
       const move = (x) => {
         if (!this._dragActive) return;
         this._dragSteer = clamp((x - this._dragBase) / this._dragSpan(el), -1, 1);
@@ -143,6 +160,13 @@
 
     /* ---- read --------------------------------------------------------- */
     update(dt) {
+      // sensor showed up after we had already fallen back? take it, quietly,
+      // but only while the player has not started dragging
+      if (this.mode === 'drag' && !this._dragUsed && this.tiltLive() && !this._lockMode) {
+        this.mode = 'tilt';
+        this.calibrate();
+        if (this.onModeChange) this.onModeChange('tilt');
+      }
       let target = 0;
       const useTilt = this.mode === 'tilt' && this.tiltLive();
       if (useTilt) {
@@ -164,7 +188,11 @@
       this.brake = damp(this.brake, b, 22, dt);
       return { steer: this.steer, brake: this.brake };
     }
-    reset() { this.steer = 0; this.brake = 0; this._dragSteer = 0; this._extBrake = 0; this._keys.l = this._keys.r = this._keys.b = 0; }
+    reset() {
+      this.steer = 0; this.brake = 0; this._dragSteer = 0; this._extBrake = 0;
+      this._dragUsed = false;
+      this._keys.l = this._keys.r = this._keys.b = 0;
+    }
   }
 
   NS.Input = Input;

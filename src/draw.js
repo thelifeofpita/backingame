@@ -136,23 +136,48 @@
     }
     // level marker, in house lilac
     const sx = W.bayCenterX(L.target.k + 3 * L.exitSide);
-    drawWallText(ctx, cam, L.levelSign, sx, 2.28, 0.46, PAL.lilac, 0.5);
-    drawWallText(ctx, cam, 'SALIDA', sx, 1.86, 0.2, 'rgba(200,205,200,0.55)', 0.4);
+    drawWallText(ctx, cam, L.levelSign, sx, 2.30, 0.44, PAL.lilac, 0.55);
+
+    // bay numbers, stencilled over each bay
+    for (let k = g.bayMin; k <= g.bayMax; k++) {
+      const bx = W.bayCenterX(k);
+      if (Math.abs(bx - cam.pos.x) > 7.5) continue;
+      drawWallText(ctx, cam, String(k + 12), bx, 2.52, 0.30, 'rgba(214,216,208,0.75)',
+        0.55 * (1 - fogAmt(dist2(cam, bx, 0))));
+    }
+
+    // the green box that is on every car park wall, and the red one beside it
+    const F = L.fixtures;
+    if (F) {
+      wallPlate(ctx, cam, F.exit.x, F.exit.y, 0.62, 0.24, [30, 168, 62], 0.55);
+      drawWallText(ctx, cam, 'SALIDA', F.exit.x, F.exit.y, 0.13, '#ffffff', 0.9);
+      wallPlate(ctx, cam, F.hose.x, F.hose.y, 0.42, 0.62, [168, 42, 34], 0.12);
+      wallPlate(ctx, cam, F.hose.x, F.hose.y, 0.34, 0.54, [128, 32, 26], 0.06);
+    }
   }
 
-  const _txtCv = document.createElement('canvas');
-  const _txtCtx = _txtCv.getContext('2d');
+  const _txtCache = new Map();
+  function textCanvas(text, color) {
+    const key = text + '|' + color;
+    let cv = _txtCache.get(key);
+    if (cv) return cv;
+    cv = document.createElement('canvas');
+    const c = cv.getContext('2d');
+    const pad = 8, fs = 64, font = `700 ${fs}px 'DM Sans', ui-sans-serif, system-ui, sans-serif`;
+    c.font = font;
+    cv.width = Math.ceil(c.measureText(text).width) + pad * 2;
+    cv.height = fs + pad * 2;
+    c.font = font;
+    c.fillStyle = color;
+    c.textBaseline = 'middle';
+    c.letterSpacing = '2px';
+    c.fillText(text, pad, cv.height / 2);
+    if (_txtCache.size > 40) _txtCache.clear();
+    _txtCache.set(key, cv);
+    return cv;
+  }
   function drawWallText(ctx, cam, text, cx, cy, h, color, alpha) {
-    const pad = 8, fs = 64;
-    _txtCtx.font = `700 ${fs}px 'DM Sans', ui-sans-serif, system-ui, sans-serif`;
-    const wpx = Math.ceil(_txtCtx.measureText(text).width) + pad * 2;
-    _txtCv.width = wpx; _txtCv.height = fs + pad * 2;
-    _txtCtx.clearRect(0, 0, _txtCv.width, _txtCv.height);
-    _txtCtx.font = `700 ${fs}px 'DM Sans', ui-sans-serif, system-ui, sans-serif`;
-    _txtCtx.fillStyle = color;
-    _txtCtx.textBaseline = 'middle';
-    _txtCtx.letterSpacing = '2px';
-    _txtCtx.fillText(text, pad, _txtCv.height / 2);
+    const _txtCv = textCanvas(text, color);
     const ar = _txtCv.width / _txtCv.height;
     const w = h * ar;
     const d = dist2(cam, cx, 0);
@@ -162,6 +187,18 @@
       { x: cx + w / 2, y: cy - h / 2, z: 0.004 }, { x: cx - w / 2, y: cy - h / 2, z: 0.004 },
       { x: cx - w / 2, y: cy + h / 2, z: 0.004 }, { x: cx + w / 2, y: cy + h / 2, z: 0.004 },
     ], { subdiv: 3, alpha: a });
+  }
+
+  /* a lit box or a painted cabinet, flat on the wall */
+  function wallPlate(ctx, cam, cx, cy, w, h, col, glow) {
+    const d = dist2(cam, cx, 0);
+    const f = 1 - fogAmt(d);
+    if (f < 0.05) return;
+    const k = 0.55 + 0.45 * f + (glow || 0);
+    C.fillPoly(ctx, cam, [
+      { x: cx - w / 2, y: cy - h / 2, z: 0.005 }, { x: cx + w / 2, y: cy - h / 2, z: 0.005 },
+      { x: cx + w / 2, y: cy + h / 2, z: 0.005 }, { x: cx - w / 2, y: cy + h / 2, z: 0.005 },
+    ], rgb(clamp(col[0] * k, 0, 255), clamp(col[1] * k, 0, 255), clamp(col[2] * k, 0, 255)));
   }
 
   /* ---- the poster -------------------------------------------------------- */
@@ -223,10 +260,12 @@
           ? (Math.sin(t * 31 + L.flicker.seed) > 0.55 ? 0.25 : 1) : 1;
         const d = dist2(cam, x + 0.75, ln.z);
         const k = (1 - fogAmt(d) * 0.8) * flick;
+        // old tubes and new ones never match: one row runs warm, the other cold
+        const wm = ln.warm || 0;
         C.fillPoly(ctx, cam, [
           { x, y: g.ceilY - 0.02, z: ln.z - 0.09 }, { x: x + 1.5, y: g.ceilY - 0.02, z: ln.z - 0.09 },
           { x: x + 1.5, y: g.ceilY - 0.02, z: ln.z + 0.09 }, { x, y: g.ceilY - 0.02, z: ln.z + 0.09 },
-        ], rgb(238 * k + 8, 244 * k + 8, 232 * k + 8));
+        ], rgb((238 + wm * 14) * k + 8, 244 * k + 8, (232 - wm * 22) * k + 8));
       }
     }
   }
@@ -262,7 +301,7 @@
             const ang = (k / 14) * Math.PI * 2;
             pts.push({ x: cx + Math.cos(ang) * rad * 1.1, y: 0.001, z: ln.z + Math.sin(ang) * rad });
           }
-          C.fillPoly(ctx, cam, pts, `rgba(190,200,190,${alpha})`);
+          C.fillPoly(ctx, cam, pts, `rgba(${190 + (ln.warm || 0) * 22},200,${190 - (ln.warm || 0) * 26},${alpha})`);
         }
       }
     }
@@ -298,7 +337,22 @@
       paintStripe(ctx, cam, x, g.kerbZ + 0.05, x, g.laneZ0, 0.11, `rgba(214,214,206,${wear})`);
     }
     // the aisle line along the mouth of the bays
-    paintStripe(ctx, cam, g.xMin, g.laneZ0, g.xMax, g.laneZ0, 0.11, `rgba(214,214,206,${0.42})`, true);
+    paintStripe(ctx, cam, g.xMin, g.laneZ0, g.xMax, g.laneZ0, 0.10, 'rgba(214,214,206,0.34)', true);
+
+    // one bay painted blue, as every car park has
+    const ak = L.fixtures ? L.fixtures.accessibleK : null;
+    if (ak !== null && ak !== L.target.k && Math.abs(W.bayCenterX(ak) - cam.pos.x) < 9) {
+      const ax = W.bayCenterX(ak);
+      const af = 1 - fogAmt(dist2(cam, ax, 3));
+      C.fillPoly(ctx, cam, [
+        { x: ax - g.bayW * 0.36, y: 0.003, z: 1.5 }, { x: ax + g.bayW * 0.36, y: 0.003, z: 1.5 },
+        { x: ax + g.bayW * 0.36, y: 0.003, z: 4.3 }, { x: ax - g.bayW * 0.36, y: 0.003, z: 4.3 },
+      ], `rgba(38,86,168,${0.55 * af})`);
+      C.fillPoly(ctx, cam, [
+        { x: ax - 0.30, y: 0.004, z: 2.35 }, { x: ax + 0.30, y: 0.004, z: 2.35 },
+        { x: ax + 0.30, y: 0.004, z: 3.45 }, { x: ax - 0.30, y: 0.004, z: 3.45 },
+      ], `rgba(228,232,238,${0.6 * af})`);
+    }
 
     /* --- wheel stops: why nobody parks with their bumper on the wall ---- */
     for (let k = g.bayMin; k <= g.bayMax; k++) {
@@ -316,21 +370,23 @@
     const tgt = L.target;
     const live = st && st.phase === 'drive';
     const ok = st && st.inBox && st.aligned;
-    const col = ok ? PAL.greenRGB : PAL.yellowRGB;
+    // house lilac, not guide-line yellow: the bay you want and the path you are
+    // taking are two different pieces of information and should not share a hue
+    const col = ok ? PAL.greenRGB : PAL.lilacRGB;
     const pulse = live ? 0.55 + 0.45 * Math.sin(t * 3.4) : 0.85;
     // fade the markings out as the car arrives — the poster is the payoff
     const close = st ? clamp((st.wallGap - 0.8) / 1.7, 0.12, 1) : 1;
-    const oa = (ok ? 0.72 : 0.34) * (live ? 1 : 0.7) * close;
-    paintStripe(ctx, cam, tgt.cx - tgt.halfW, g.kerbZ + 0.05, tgt.cx - tgt.halfW, g.laneZ0, 0.105, rgbaArr(col, oa));
-    paintStripe(ctx, cam, tgt.cx + tgt.halfW, g.kerbZ + 0.05, tgt.cx + tgt.halfW, g.laneZ0, 0.105, rgbaArr(col, oa));
-    paintStripe(ctx, cam, tgt.cx - tgt.halfW, g.kerbZ + 0.06, tgt.cx + tgt.halfW, g.kerbZ + 0.06, 0.105, rgbaArr(col, oa));
+    const oa = (ok ? 0.72 : 0.52) * (live ? 1 : 0.7) * close;
+    paintStripe(ctx, cam, tgt.cx - tgt.halfW, g.kerbZ + 0.05, tgt.cx - tgt.halfW, g.laneZ0, 0.095, rgbaArr(col, oa));
+    paintStripe(ctx, cam, tgt.cx + tgt.halfW, g.kerbZ + 0.05, tgt.cx + tgt.halfW, g.laneZ0, 0.095, rgbaArr(col, oa));
+    paintStripe(ctx, cam, tgt.cx - tgt.halfW, g.kerbZ + 0.06, tgt.cx + tgt.halfW, g.kerbZ + 0.06, 0.095, rgbaArr(col, oa));
     // chevrons flowing towards the wall — an invitation, not a floodlight,
     // and they bow out once the car is close enough to see for itself
     const near = st ? clamp((st.wallGap - 1.3) / 1.8, 0, 1) : 1;
     for (let i = 0; i < 3; i++) {
       const base = 1.45 + i * 1.0;
       const phase = live ? ((t * 0.9 + i * 0.33) % 1) : 0.5;
-      const a = (0.14 + 0.30 * (1 - Math.abs(phase * 2 - 1))) * pulse * near;
+      const a = (0.20 + 0.40 * (1 - Math.abs(phase * 2 - 1))) * pulse * near;
       if (a < 0.02) continue;
       chevron(ctx, cam, tgt.cx, base, 0.58, 0.30, rgbaArr(col, a));
     }
