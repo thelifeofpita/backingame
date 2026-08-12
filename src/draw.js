@@ -751,7 +751,7 @@
   /*  OWN BUMPER — screen-space, because it is bolted to the camera           */
   /* ======================================================================== */
   function drawBumper(ctx, w, h) {
-    const y0 = h * 0.895;
+    const y0 = h * 0.918;
     const g = ctx.createLinearGradient(0, y0, 0, h);
     g.addColorStop(0, 'rgba(96,99,104,1)');
     g.addColorStop(0.18, 'rgba(58,61,66,1)');
@@ -817,8 +817,8 @@
     solids.sort((a, b) => b.d - a.d);
     for (const s of solids) s.draw();
 
-    if (opts.guides !== false && st.phase === 'drive') drawGuides(ctx, cam, st, opts);
     if (opts.bumper !== false) drawBumper(ctx, w, h);
+    if (opts.guides !== false && st.phase === 'drive') drawGuides(ctx, cam, st, opts);
   }
 
   /* One canvas of wall lettering per level, and the quads it maps onto:

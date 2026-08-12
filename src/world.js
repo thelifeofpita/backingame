@@ -21,6 +21,14 @@
     modelScale: 1.2133,   // kit units -> metres, so a sedan is 1.82 m wide
   };
   const MODELS = ['sedan', 'suv', 'hatch', 'van', 'coupe'];
+  /* the kit's own footprints, in metres, so collision matches what is drawn */
+  const MODEL_DIMS = {
+    sedan: { len: 3.09, wid: 1.82 },
+    suv:   { len: 3.28, wid: 1.82 },
+    hatch: { len: 3.46, wid: 1.58 },
+    van:   { len: 3.34, wid: 1.82 },
+    coupe: { len: 3.09, wid: 1.58 },
+  };
   const GEO = {
     bayW: 2.62, bayD: 4.60,
     wallZ: 0,            // poster wall
@@ -103,12 +111,16 @@
       // sloppy parkers: a slight skew and lateral drift, tighter when harder
       const skew = rng.range(-0.055, 0.055) * (0.6 + d);
       const drift = rng.range(-0.14, 0.14) * (0.5 + d) + (Math.abs(k - targetK) === 1 ? rng.range(-0.06, 0.06) : 0);
-      // some drivers nose in, some back in — the near end sits close to the wall
+      /* Some drivers nose in, some back in, but nobody mounts the wheel stop:
+         the near end of every parked car rests just short of it, which is what
+         the stop is there to make happen. */
       const backedIn = rng.chance(0.45);
-      const nearGap = rng.range(0.30, 0.72);
+      const model = rng.pick(MODELS);
+      const dim = MODEL_DIMS[model];
+      const nearEnd = GEO.stopZ + 0.09 + rng.range(0.02, 0.18);
       const axleZ = backedIn
-        ? nearGap + CAR.rearOverhang
-        : nearGap + CAR.wheelbase + CAR.frontOverhang;
+        ? nearEnd + CAR.rearOverhang
+        : nearEnd + dim.len - CAR.rearOverhang;
       cars.push({
         k,
         x: bayCenterX(k) + drift,
@@ -116,7 +128,9 @@
         heading: (backedIn ? 0 : Math.PI) + skew,
         backedIn,
         paint,
-        model: rng.pick(MODELS),
+        model,
+        len: dim.len,
+        wid: dim.wid,
         wagon: rng.chance(0.34),
       });
     }
@@ -216,5 +230,5 @@
     };
   }
 
-  NS.world = { CAR, GEO, MODELS, CAR_PAINTS, buildLevel, carCorners, local2world, world2local, bayCenterX };
+  NS.world = { CAR, GEO, MODELS, MODEL_DIMS, CAR_PAINTS, buildLevel, carCorners, local2world, world2local, bayCenterX };
 })(window.PM = window.PM || {});

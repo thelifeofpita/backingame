@@ -394,6 +394,8 @@
           V(sk.x + dx + 0.07, 0.003, sk.z + dz), V(sk.x + dx - 0.07, 0.003, sk.z + dz), col);
       }
       for (const st of L.stains) {
+        // nothing directly behind the poster: it reads as a mounting board
+        if (Math.abs(st.x - L.poster.cx) < 1.4 && Math.abs(st.y - L.poster.cy) < 1.2) continue;
         const a = clamp(st.a * 1.5, 0, 0.24);
         const base = st.dark ? [40, 42, 42] : [190, 190, 182];
         const col = [lerp(CONCRETE[0], base[0], a), lerp(CONCRETE[1], base[1], a), lerp(CONCRETE[2], base[2], a)];
@@ -480,9 +482,10 @@
       // the poster, and anything else printed on the wall
       this.drawDecals(cam, L, opts);
 
-      // the overlay the car paints over its own picture
-      if (opts.guides !== false && st && st.phase === 'drive') this.drawGuides(cam, st);
+      /* Bumper first, overlay second: a reversing camera paints its guides on
+         top of the whole picture, including the car's own bodywork. */
       if (opts.bumper !== false) this.drawBumper();
+      if (opts.guides !== false && st && st.phase === 'drive') this.drawGuides(cam, st);
 
       gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     }
@@ -615,7 +618,7 @@
       const gl = this.gl, p = this.solid;
       if (!this.bumperBuf) {
         const m = new Mesh();
-        const N = 24, top = -0.66, dip = 0.10;
+        const N = 24, top = -0.80, dip = 0.085;
         for (let i = 0; i < N; i++) {
           const x0 = -1.1 + (2.2 * i) / N, x1 = -1.1 + (2.2 * (i + 1)) / N;
           const y0 = top + dip * (x0 * x0), y1 = top + dip * (x1 * x1);

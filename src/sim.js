@@ -13,17 +13,17 @@
   const TUNE = {
     creep: 1.42,          // m/s — an automatic idling backwards
     creepFwd: 0.95,       // and what it does when you select D
-    holdToShift: 0.62,    // s on the brake before the box goes into D
+    holdToShift: 0.85,    // s on the brake before the box goes into D
     accel: 2.6,
     brakeRate: 5.4,
     maxSteerAngle: 0.62,  // rad at the front wheels (~35°)
     steerRate: 2.9,       // rad/s of wheel movement
     timeLimit: 19.0,      // s — a round always fits inside twenty seconds
-    holdToPark: 0.42,     // s stationary in the box before it counts
+    holdToPark: 0.10,     // s stationary in the box before it counts
     stopSpeed: 0.10,
-    wallCrash: 0.50,      // past the wheel stop is a crunch
-    idealGap: 1.10,       // resting on the wheel stop — and where the poster frames
-    gapMin: 0.72,
+    wallCrash: 0.92,      // mounting the wheel stop is a crunch
+    idealGap: 1.22,       // bumper on the stop — and where the poster frames
+    gapMin: 1.02,
     gapMax: 1.95,
   };
 
@@ -38,11 +38,14 @@
     }
     return pts;
   }
-  function carBox(x, z, heading, shrink) {
+  /* dims: a parked neighbour may be a longer or narrower model than we drive */
+  function carBox(x, z, heading, shrink, dims) {
     const sh = shrink || 0;
-    const halfLen = (W.CAR.rearOverhang + W.CAR.wheelbase + W.CAR.frontOverhang) * 0.5 - sh;
-    const cf = (W.CAR.wheelbase + W.CAR.frontOverhang - W.CAR.rearOverhang) * 0.5;
-    return obb(x, z, heading, halfLen, W.CAR.wid * 0.5 - sh, cf);
+    const len = (dims && dims.len) || W.CAR.len;
+    const wid = (dims && dims.wid) || W.CAR.wid;
+    const halfLen = len * 0.5 - sh;
+    const cf = len * 0.5 - W.CAR.rearOverhang;
+    return obb(x, z, heading, halfLen, wid * 0.5 - sh, cf);
   }
   function axes(poly) {
     const out = [];
@@ -91,7 +94,7 @@
   /* ---- obstacle list ----------------------------------------------------- */
   function buildObstacles(level) {
     const obs = [];
-    for (const c of level.cars) obs.push({ kind: 'car', poly: carBox(c.x, c.z, c.heading, 0.015), ref: c });
+    for (const c of level.cars) obs.push({ kind: 'car', poly: carBox(c.x, c.z, c.heading, 0.015, c), ref: c });
     for (const p of level.pillars) {
       obs.push({ kind: 'pillar', poly: obb(p.x, p.z, 0, p.d * 0.5, p.w * 0.5, 0), ref: p });
     }
@@ -147,7 +150,7 @@
       const d = polyDist(box, o.poly);
       if (d < prox) prox = d;
     }
-    s.proximity = Math.max(0, prox);
+    s.proximity = Math.max(0, prox);   // still used for the crash margin
 
     /* Inside the bay. A 4.3 m car in a 2.6 m bay is unforgiving: five degrees
        of skew throws the nose a third of a metre sideways, so the tolerance
@@ -162,6 +165,11 @@
     s.headingErr = norm(c.h);          // parked square = nose out, heading 0
     s.lateralErr = c.x - t.cx;
     s.wallGap = Math.min(bump[0].z, bump[1].z);
+    /* What the readout, the arcs and the beeps all mean: how much reversing is
+       left before the boot is on the wheel stop. Distance to whatever happens
+       to be beside you was true but useless — it read 0.3 m while you were
+       still four metres from the bay. */
+    s.toStop = Math.max(0, s.wallGap - (L.geo.stopZ + 0.09));
     s.aligned = Math.abs(s.headingErr) < 0.175 && Math.abs(s.lateralErr) < 0.34;
     return box;
   }
@@ -188,7 +196,10 @@
     /* Hold the brake and it stops. Keep holding and the box drops into D and
        pulls you forward again — the way an automatic does, and the only way
        out of an overshoot. Let go and it is back in R. */
-    if (brake > 0.55) s.brakeHold += dt; else s.brakeHold = 0;
+    /* Braking to a stop in the right place has to land as a win before the
+       box ever reaches D, or holding the brake would make the game
+       unwinnable — which is exactly what it did. */
+    if (brake > 0.55 && !s.parkedNow) s.brakeHold += dt; else s.brakeHold = 0;
     s.gear = s.brakeHold > TUNE.holdToShift ? 'D' : 'R';
     const target = s.gear === 'D'
       ? TUNE.creepFwd
@@ -230,6 +241,7 @@
     const stopped = Math.abs(c.v) < TUNE.stopSpeed && s.gear === 'R';
     const good = s.inBox && stopped && Math.abs(s.headingErr) < 0.14 &&
                  s.wallGap > TUNE.gapMin && s.wallGap < TUNE.gapMax;
+    s.parkedNow = good;
     if (good) {
       s.parkHold += dt;
       if (s.parkHold >= TUNE.holdToPark) {
@@ -303,7 +315,7 @@
        heading that is too small needs a negative wheel angle to grow it. */
     const e = c.x - t.cx;
     // the lookahead shortens as the wall closes, so the last metre is straight
-    const look = clamp((s.wallGap - 1.05) * drv.look, 0.85, 2.6);
+    const look = clamp((s.wallGap - 1.15) * drv.look, 0.85, 2.6);
     const hDes = clamp(Math.atan2(drv.kE * e, look), -0.7, 0.7);
     const psi = norm(c.h - hDes);
     let delta = drv.kPsi * psi;
@@ -324,7 +336,7 @@
     if (s.wallGap < 2.4) brake = clamp((2.4 - s.wallGap) / 1.4, 0, 1) * 0.5;
     // only commit to stopping once the car is genuinely in the box
     if (s.wallGap < stopAt + 0.30 && s.inBox) brake = 1;
-    else if (s.wallGap < TUNE.gapMin + 0.15) brake = 0.9;   // out of the box: crawl
+    else if (s.wallGap < TUNE.gapMin + 0.10) brake = 0.9;   // out of the box: crawl
     if (drv.hesitate && s.t > drv.hesitate.at && s.t < drv.hesitate.at + drv.hesitate.dur) brake = 1;
 
     drv.lastSteer = delayed;

@@ -55,7 +55,7 @@
       <p id="status" role="status" aria-live="polite">Line it up</p>
 
       <div id="pdc">
-        <svg viewBox="0 0 132 84" id="pdcSvg" role="img" aria-hidden="true">
+        <svg viewBox="0 0 132 96" id="pdcSvg" role="img" aria-hidden="true">
           <!-- the car, from above, boot towards the arcs -->
           <path d="M46 4 h40 a7 7 0 0 1 7 7 v22 a7 7 0 0 1 -7 7 h-40 a7 7 0 0 1 -7 -7 v-22 a7 7 0 0 1 7 -7 z"
                 fill="#22252a" stroke="rgba(159,141,199,0.45)" stroke-width="1.2"/>
@@ -70,16 +70,19 @@
         </svg>
         <div class="dist">
           <b id="distNum">—</b>
-          <span>to contact</span>
+          <span>to stop</span>
         </div>
       </div>
 
       <div id="brakeWrap">
         <button id="brake" aria-label="Hold to brake">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true">
-            <circle cx="12" cy="12" r="8.6"/><path d="M12 3.4v17.2M3.4 12h17.2" transform="rotate(45 12 12)"/>
-          </svg>
-          <span>Brake</span>
+          <span class="disc">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true">
+              <circle cx="12" cy="12" r="9.1"/>
+              <path d="M12 2.9v18.2M2.9 12h18.2" transform="rotate(45 12 12)"/>
+            </svg>
+          </span>
+          <span class="lbl">Brake</span>
         </button>
       </div>
     </div>
@@ -336,28 +339,54 @@ kbd {
 
 /* proximity display: position, colour and a number, so it reads three ways */
 #pdc { display: flex; align-items: center; justify-content: center; gap: calc(var(--u) * 16); flex: 0 0 auto; }
-#pdcSvg { width: calc(var(--u) * 116); height: calc(var(--u) * 74); }
+#pdcSvg { width: calc(var(--u) * 116); height: calc(var(--u) * 84); overflow: visible; flex: none; }
 #pdcSvg .arc { stroke: rgba(244,243,239,0.11); transition: stroke .12s linear; }
 #pdc .dist { text-align: left; }
 #pdc .dist b { display: block; font: 700 calc(var(--u) * 30)/1 var(--sans); letter-spacing: -0.03em; font-variant-numeric: tabular-nums; }
 #pdc .dist span { display: block; font: 600 calc(var(--u) * 9)/1 var(--osd); letter-spacing: 0.16em; text-transform: uppercase; color: rgba(244,243,239,0.56); margin-top: calc(var(--u) * 5); }
 
-#brakeWrap { flex: 1 1 auto; display: flex; align-items: center; justify-content: center; min-height: calc(var(--u) * 96); }
+#brakeWrap { flex: 1 1 auto; display: flex; align-items: center; justify-content: center; min-height: calc(var(--u) * 118); }
+
+/* A round control with the glyph dead centre and its name beneath it, the way
+   a physical button on a dashboard is labelled. */
 #brake {
+  position: relative;
+  width: calc(var(--u) * 104); height: calc(var(--u) * 128);
+  border: 0; background: none; padding: 0; cursor: pointer;
+  display: flex; flex-direction: column; align-items: center; gap: calc(var(--u) * 9);
+  color: #fff;
+}
+#brake .disc {
+  position: relative;
   width: calc(var(--u) * 96); height: calc(var(--u) * 96); border-radius: 50%;
-  border: calc(var(--u) * 2) solid rgba(255,46,18,0.5);
-  background: radial-gradient(circle at 50% 34%, rgba(255,46,18,0.24), rgba(255,46,18,0.06) 62%, rgba(0,0,0,0.4));
-  color: #fff; cursor: pointer; display: grid; place-items: center; gap: calc(var(--u) * 3);
-  font: 700 calc(var(--u) * 10)/1 var(--osd); letter-spacing: 0.15em; text-transform: uppercase;
-  transition: transform .1s ease, background .1s ease, box-shadow .1s ease;
-  box-shadow: 0 0 0 0 rgba(255,46,18,0);
+  display: grid; place-items: center;
+  background:
+    radial-gradient(circle at 50% 30%, #2a1614 0%, #1a0f0e 62%, #120b0b 100%);
+  box-shadow:
+    inset 0 calc(var(--u) * 1.5) 0 rgba(255,255,255,0.10),
+    inset 0 calc(var(--u) * -3) calc(var(--u) * 8) rgba(0,0,0,0.7),
+    0 calc(var(--u) * 3) calc(var(--u) * 10) rgba(0,0,0,0.5);
+  transition: transform .09s ease, background .09s ease, box-shadow .09s ease;
 }
-#brake svg { width: calc(var(--u) * 24); height: calc(var(--u) * 24); }
-#brake[data-on="1"] {
-  background: radial-gradient(circle at 50% 34%, rgba(255,46,18,0.9), rgba(255,46,18,0.35) 70%);
-  transform: scale(0.945); box-shadow: 0 0 calc(var(--u) * 26) rgba(255,46,18,0.45);
+#brake .disc::before {
+  content: ''; position: absolute; inset: 0; border-radius: 50%;
+  border: calc(var(--u) * 2) solid var(--cam-red); opacity: .78;
 }
-#brake:disabled { opacity: 0.3; cursor: default; }
+#brake svg { width: calc(var(--u) * 40); height: calc(var(--u) * 40); color: var(--cam-red); }
+#brake .lbl {
+  font: 700 calc(var(--u) * 10)/1 var(--osd); letter-spacing: 0.18em; text-transform: uppercase;
+  color: rgba(244,243,239,0.62);
+}
+#brake[data-on="1"] .disc {
+  background: radial-gradient(circle at 50% 34%, #ff5236 0%, #d8240f 60%, #9a1608 100%);
+  transform: scale(0.955);
+  box-shadow: inset 0 calc(var(--u) * -2) calc(var(--u) * 6) rgba(0,0,0,0.45),
+              0 0 calc(var(--u) * 26) rgba(255,46,18,0.45);
+}
+#brake[data-on="1"] svg { color: #fff; }
+#brake[data-on="1"] .lbl { color: var(--paper); }
+#brake:disabled { opacity: 0.32; cursor: default; }
+
 #app[data-phase="reveal"] #dash > *:not(#feedSlot), #app[data-phase="result"] #dash > *:not(#feedSlot) { opacity: 0.12; transition: opacity .5s ease; }
 
 /* ---- generic overlay ---------------------------------------------------- */
@@ -857,6 +886,14 @@ window.PM_MODELS = {
     modelScale: 1.2133,   // kit units -> metres, so a sedan is 1.82 m wide
   };
   const MODELS = ['sedan', 'suv', 'hatch', 'van', 'coupe'];
+  /* the kit's own footprints, in metres, so collision matches what is drawn */
+  const MODEL_DIMS = {
+    sedan: { len: 3.09, wid: 1.82 },
+    suv:   { len: 3.28, wid: 1.82 },
+    hatch: { len: 3.46, wid: 1.58 },
+    van:   { len: 3.34, wid: 1.82 },
+    coupe: { len: 3.09, wid: 1.58 },
+  };
   const GEO = {
     bayW: 2.62, bayD: 4.60,
     wallZ: 0,            // poster wall
@@ -939,12 +976,16 @@ window.PM_MODELS = {
       // sloppy parkers: a slight skew and lateral drift, tighter when harder
       const skew = rng.range(-0.055, 0.055) * (0.6 + d);
       const drift = rng.range(-0.14, 0.14) * (0.5 + d) + (Math.abs(k - targetK) === 1 ? rng.range(-0.06, 0.06) : 0);
-      // some drivers nose in, some back in — the near end sits close to the wall
+      /* Some drivers nose in, some back in, but nobody mounts the wheel stop:
+         the near end of every parked car rests just short of it, which is what
+         the stop is there to make happen. */
       const backedIn = rng.chance(0.45);
-      const nearGap = rng.range(0.30, 0.72);
+      const model = rng.pick(MODELS);
+      const dim = MODEL_DIMS[model];
+      const nearEnd = GEO.stopZ + 0.09 + rng.range(0.02, 0.18);
       const axleZ = backedIn
-        ? nearGap + CAR.rearOverhang
-        : nearGap + CAR.wheelbase + CAR.frontOverhang;
+        ? nearEnd + CAR.rearOverhang
+        : nearEnd + dim.len - CAR.rearOverhang;
       cars.push({
         k,
         x: bayCenterX(k) + drift,
@@ -952,7 +993,9 @@ window.PM_MODELS = {
         heading: (backedIn ? 0 : Math.PI) + skew,
         backedIn,
         paint,
-        model: rng.pick(MODELS),
+        model,
+        len: dim.len,
+        wid: dim.wid,
         wagon: rng.chance(0.34),
       });
     }
@@ -1052,7 +1095,7 @@ window.PM_MODELS = {
     };
   }
 
-  NS.world = { CAR, GEO, MODELS, CAR_PAINTS, buildLevel, carCorners, local2world, world2local, bayCenterX };
+  NS.world = { CAR, GEO, MODELS, MODEL_DIMS, CAR_PAINTS, buildLevel, carCorners, local2world, world2local, bayCenterX };
 })(window.PM = window.PM || {});
 
 /* ==== sim.js ======================================================== */
@@ -1071,17 +1114,17 @@ window.PM_MODELS = {
   const TUNE = {
     creep: 1.42,          // m/s — an automatic idling backwards
     creepFwd: 0.95,       // and what it does when you select D
-    holdToShift: 0.62,    // s on the brake before the box goes into D
+    holdToShift: 0.85,    // s on the brake before the box goes into D
     accel: 2.6,
     brakeRate: 5.4,
     maxSteerAngle: 0.62,  // rad at the front wheels (~35°)
     steerRate: 2.9,       // rad/s of wheel movement
     timeLimit: 19.0,      // s — a round always fits inside twenty seconds
-    holdToPark: 0.42,     // s stationary in the box before it counts
+    holdToPark: 0.10,     // s stationary in the box before it counts
     stopSpeed: 0.10,
-    wallCrash: 0.50,      // past the wheel stop is a crunch
-    idealGap: 1.10,       // resting on the wheel stop — and where the poster frames
-    gapMin: 0.72,
+    wallCrash: 0.92,      // mounting the wheel stop is a crunch
+    idealGap: 1.22,       // bumper on the stop — and where the poster frames
+    gapMin: 1.02,
     gapMax: 1.95,
   };
 
@@ -1096,11 +1139,14 @@ window.PM_MODELS = {
     }
     return pts;
   }
-  function carBox(x, z, heading, shrink) {
+  /* dims: a parked neighbour may be a longer or narrower model than we drive */
+  function carBox(x, z, heading, shrink, dims) {
     const sh = shrink || 0;
-    const halfLen = (W.CAR.rearOverhang + W.CAR.wheelbase + W.CAR.frontOverhang) * 0.5 - sh;
-    const cf = (W.CAR.wheelbase + W.CAR.frontOverhang - W.CAR.rearOverhang) * 0.5;
-    return obb(x, z, heading, halfLen, W.CAR.wid * 0.5 - sh, cf);
+    const len = (dims && dims.len) || W.CAR.len;
+    const wid = (dims && dims.wid) || W.CAR.wid;
+    const halfLen = len * 0.5 - sh;
+    const cf = len * 0.5 - W.CAR.rearOverhang;
+    return obb(x, z, heading, halfLen, wid * 0.5 - sh, cf);
   }
   function axes(poly) {
     const out = [];
@@ -1149,7 +1195,7 @@ window.PM_MODELS = {
   /* ---- obstacle list ----------------------------------------------------- */
   function buildObstacles(level) {
     const obs = [];
-    for (const c of level.cars) obs.push({ kind: 'car', poly: carBox(c.x, c.z, c.heading, 0.015), ref: c });
+    for (const c of level.cars) obs.push({ kind: 'car', poly: carBox(c.x, c.z, c.heading, 0.015, c), ref: c });
     for (const p of level.pillars) {
       obs.push({ kind: 'pillar', poly: obb(p.x, p.z, 0, p.d * 0.5, p.w * 0.5, 0), ref: p });
     }
@@ -1205,7 +1251,7 @@ window.PM_MODELS = {
       const d = polyDist(box, o.poly);
       if (d < prox) prox = d;
     }
-    s.proximity = Math.max(0, prox);
+    s.proximity = Math.max(0, prox);   // still used for the crash margin
 
     /* Inside the bay. A 4.3 m car in a 2.6 m bay is unforgiving: five degrees
        of skew throws the nose a third of a metre sideways, so the tolerance
@@ -1220,6 +1266,11 @@ window.PM_MODELS = {
     s.headingErr = norm(c.h);          // parked square = nose out, heading 0
     s.lateralErr = c.x - t.cx;
     s.wallGap = Math.min(bump[0].z, bump[1].z);
+    /* What the readout, the arcs and the beeps all mean: how much reversing is
+       left before the boot is on the wheel stop. Distance to whatever happens
+       to be beside you was true but useless — it read 0.3 m while you were
+       still four metres from the bay. */
+    s.toStop = Math.max(0, s.wallGap - (L.geo.stopZ + 0.09));
     s.aligned = Math.abs(s.headingErr) < 0.175 && Math.abs(s.lateralErr) < 0.34;
     return box;
   }
@@ -1246,7 +1297,10 @@ window.PM_MODELS = {
     /* Hold the brake and it stops. Keep holding and the box drops into D and
        pulls you forward again — the way an automatic does, and the only way
        out of an overshoot. Let go and it is back in R. */
-    if (brake > 0.55) s.brakeHold += dt; else s.brakeHold = 0;
+    /* Braking to a stop in the right place has to land as a win before the
+       box ever reaches D, or holding the brake would make the game
+       unwinnable — which is exactly what it did. */
+    if (brake > 0.55 && !s.parkedNow) s.brakeHold += dt; else s.brakeHold = 0;
     s.gear = s.brakeHold > TUNE.holdToShift ? 'D' : 'R';
     const target = s.gear === 'D'
       ? TUNE.creepFwd
@@ -1288,6 +1342,7 @@ window.PM_MODELS = {
     const stopped = Math.abs(c.v) < TUNE.stopSpeed && s.gear === 'R';
     const good = s.inBox && stopped && Math.abs(s.headingErr) < 0.14 &&
                  s.wallGap > TUNE.gapMin && s.wallGap < TUNE.gapMax;
+    s.parkedNow = good;
     if (good) {
       s.parkHold += dt;
       if (s.parkHold >= TUNE.holdToPark) {
@@ -1361,7 +1416,7 @@ window.PM_MODELS = {
        heading that is too small needs a negative wheel angle to grow it. */
     const e = c.x - t.cx;
     // the lookahead shortens as the wall closes, so the last metre is straight
-    const look = clamp((s.wallGap - 1.05) * drv.look, 0.85, 2.6);
+    const look = clamp((s.wallGap - 1.15) * drv.look, 0.85, 2.6);
     const hDes = clamp(Math.atan2(drv.kE * e, look), -0.7, 0.7);
     const psi = norm(c.h - hDes);
     let delta = drv.kPsi * psi;
@@ -1382,7 +1437,7 @@ window.PM_MODELS = {
     if (s.wallGap < 2.4) brake = clamp((2.4 - s.wallGap) / 1.4, 0, 1) * 0.5;
     // only commit to stopping once the car is genuinely in the box
     if (s.wallGap < stopAt + 0.30 && s.inBox) brake = 1;
-    else if (s.wallGap < TUNE.gapMin + 0.15) brake = 0.9;   // out of the box: crawl
+    else if (s.wallGap < TUNE.gapMin + 0.10) brake = 0.9;   // out of the box: crawl
     if (drv.hesitate && s.t > drv.hesitate.at && s.t < drv.hesitate.at + drv.hesitate.dur) brake = 1;
 
     drv.lastSteer = delayed;
@@ -2165,7 +2220,7 @@ window.PM_MODELS = {
   /*  OWN BUMPER — screen-space, because it is bolted to the camera           */
   /* ======================================================================== */
   function drawBumper(ctx, w, h) {
-    const y0 = h * 0.895;
+    const y0 = h * 0.918;
     const g = ctx.createLinearGradient(0, y0, 0, h);
     g.addColorStop(0, 'rgba(96,99,104,1)');
     g.addColorStop(0.18, 'rgba(58,61,66,1)');
@@ -2231,8 +2286,8 @@ window.PM_MODELS = {
     solids.sort((a, b) => b.d - a.d);
     for (const s of solids) s.draw();
 
-    if (opts.guides !== false && st.phase === 'drive') drawGuides(ctx, cam, st, opts);
     if (opts.bumper !== false) drawBumper(ctx, w, h);
+    if (opts.guides !== false && st.phase === 'drive') drawGuides(ctx, cam, st, opts);
   }
 
   /* One canvas of wall lettering per level, and the quads it maps onto:
@@ -2985,6 +3040,8 @@ window.PM_MODELS = {
           V(sk.x + dx + 0.07, 0.003, sk.z + dz), V(sk.x + dx - 0.07, 0.003, sk.z + dz), col);
       }
       for (const st of L.stains) {
+        // nothing directly behind the poster: it reads as a mounting board
+        if (Math.abs(st.x - L.poster.cx) < 1.4 && Math.abs(st.y - L.poster.cy) < 1.2) continue;
         const a = clamp(st.a * 1.5, 0, 0.24);
         const base = st.dark ? [40, 42, 42] : [190, 190, 182];
         const col = [lerp(CONCRETE[0], base[0], a), lerp(CONCRETE[1], base[1], a), lerp(CONCRETE[2], base[2], a)];
@@ -3071,9 +3128,10 @@ window.PM_MODELS = {
       // the poster, and anything else printed on the wall
       this.drawDecals(cam, L, opts);
 
-      // the overlay the car paints over its own picture
-      if (opts.guides !== false && st && st.phase === 'drive') this.drawGuides(cam, st);
+      /* Bumper first, overlay second: a reversing camera paints its guides on
+         top of the whole picture, including the car's own bodywork. */
       if (opts.bumper !== false) this.drawBumper();
+      if (opts.guides !== false && st && st.phase === 'drive') this.drawGuides(cam, st);
 
       gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     }
@@ -3206,7 +3264,7 @@ window.PM_MODELS = {
       const gl = this.gl, p = this.solid;
       if (!this.bumperBuf) {
         const m = new Mesh();
-        const N = 24, top = -0.66, dip = 0.10;
+        const N = 24, top = -0.80, dip = 0.085;
         for (let i = 0; i < N; i++) {
           const x0 = -1.1 + (2.2 * i) / N, x1 = -1.1 + (2.2 * (i + 1)) / N;
           const y0 = top + dip * (x0 * x0), y1 = top + dip * (x1 * x1);
@@ -4066,7 +4124,7 @@ window.PM_MODELS = {
       if (this.phase === 'play') {
         const inp = this.autoDrive ? S.drive(st, this.driver, dt) : this.input.update(dt);
         S.step(st, dt, inp);
-        this.audio.proximity(st.proximity, this.time);
+        this.audio.proximity(st.toStop === undefined ? st.proximity : st.toStop, this.time);
         this.updateStatus();
         this.updateDash();
         if (st.phase !== 'drive') this.endRound();
@@ -4123,7 +4181,7 @@ window.PM_MODELS = {
         this.gearEls.forEach((el) => el.classList.toggle('on', el.textContent === st.gear));
       }
 
-      const d = st.proximity;
+      const d = st.toStop === undefined ? st.proximity : st.toStop;
       e.distNum.textContent = !playing ? '—' : d > 2.6 ? '—' : d.toFixed(1) + ' m';
       e.distNum.style.color = d < 0.5 ? 'var(--cam-red)' : 'var(--paper)';
 
@@ -4132,6 +4190,7 @@ window.PM_MODELS = {
       const COL = ['var(--cam-red)', 'var(--pm-yellow)', 'var(--pm-yellow)', 'var(--cam-green)'];
       let lit = 0;
       for (let i = 3; i >= 0; i--) if (playing && d < TH[i]) lit = i + 1;
+      void lit;
       if (lit !== this.arcLit) {
         this.arcLit = lit;
         this.arcs.forEach((a, i) => {
@@ -4338,7 +4397,7 @@ window.PM_MODELS = {
     ctx.font = font(9, 600);
     ctx.letterSpacing = (1.5 * u).toFixed(2) + 'px';
     ctx.fillStyle = 'rgba(244,243,239,0.4)';
-    ctx.fillText('TO CONTACT', dx, py + 52 * u);
+    ctx.fillText('TO STOP', dx, py + 52 * u);
     ctx.letterSpacing = '0px';
 
     /* --- brake ---------------------------------------------------------- */
@@ -4623,7 +4682,7 @@ window.PM_MODELS = {
 
       const [text, tone] = this.statusOf();
       drawScreen(this.sctx, SCREEN_W, SCREEN_H, {
-        timeLeft: st.timeLeft, proximity: st.proximity, brake: this.brake,
+        timeLeft: st.timeLeft, proximity: st.toStop === undefined ? st.proximity : st.toStop, brake: this.brake,
         playing: this.phase === 'play', statusText: text, statusTone: tone,
       }, t, this.feedCv, this.L);
     }

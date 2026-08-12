@@ -344,7 +344,7 @@
       if (this.phase === 'play') {
         const inp = this.autoDrive ? S.drive(st, this.driver, dt) : this.input.update(dt);
         S.step(st, dt, inp);
-        this.audio.proximity(st.proximity, this.time);
+        this.audio.proximity(st.toStop === undefined ? st.proximity : st.toStop, this.time);
         this.updateStatus();
         this.updateDash();
         if (st.phase !== 'drive') this.endRound();
@@ -401,7 +401,7 @@
         this.gearEls.forEach((el) => el.classList.toggle('on', el.textContent === st.gear));
       }
 
-      const d = st.proximity;
+      const d = st.toStop === undefined ? st.proximity : st.toStop;
       e.distNum.textContent = !playing ? '—' : d > 2.6 ? '—' : d.toFixed(1) + ' m';
       e.distNum.style.color = d < 0.5 ? 'var(--cam-red)' : 'var(--paper)';
 
@@ -410,6 +410,7 @@
       const COL = ['var(--cam-red)', 'var(--pm-yellow)', 'var(--pm-yellow)', 'var(--cam-green)'];
       let lit = 0;
       for (let i = 3; i >= 0; i--) if (playing && d < TH[i]) lit = i + 1;
+      void lit;
       if (lit !== this.arcLit) {
         this.arcLit = lit;
         this.arcs.forEach((a, i) => {

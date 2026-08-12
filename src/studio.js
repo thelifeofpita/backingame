@@ -128,7 +128,7 @@
     ctx.font = font(9, 600);
     ctx.letterSpacing = (1.5 * u).toFixed(2) + 'px';
     ctx.fillStyle = 'rgba(244,243,239,0.4)';
-    ctx.fillText('TO CONTACT', dx, py + 52 * u);
+    ctx.fillText('TO STOP', dx, py + 52 * u);
     ctx.letterSpacing = '0px';
 
     /* --- brake ---------------------------------------------------------- */
@@ -413,7 +413,7 @@
 
       const [text, tone] = this.statusOf();
       drawScreen(this.sctx, SCREEN_W, SCREEN_H, {
-        timeLeft: st.timeLeft, proximity: st.proximity, brake: this.brake,
+        timeLeft: st.timeLeft, proximity: st.toStop === undefined ? st.proximity : st.toStop, brake: this.brake,
         playing: this.phase === 'play', statusText: text, statusTone: tone,
       }, t, this.feedCv, this.L);
     }

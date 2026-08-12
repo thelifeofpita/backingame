@@ -43,7 +43,7 @@
       <p id="status" role="status" aria-live="polite">Line it up</p>
 
       <div id="pdc">
-        <svg viewBox="0 0 132 84" id="pdcSvg" role="img" aria-hidden="true">
+        <svg viewBox="0 0 132 96" id="pdcSvg" role="img" aria-hidden="true">
           <!-- the car, from above, boot towards the arcs -->
           <path d="M46 4 h40 a7 7 0 0 1 7 7 v22 a7 7 0 0 1 -7 7 h-40 a7 7 0 0 1 -7 -7 v-22 a7 7 0 0 1 7 -7 z"
                 fill="#22252a" stroke="rgba(159,141,199,0.45)" stroke-width="1.2"/>
@@ -58,16 +58,19 @@
         </svg>
         <div class="dist">
           <b id="distNum">—</b>
-          <span>to contact</span>
+          <span>to stop</span>
         </div>
       </div>
 
       <div id="brakeWrap">
         <button id="brake" aria-label="Hold to brake">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true">
-            <circle cx="12" cy="12" r="8.6"/><path d="M12 3.4v17.2M3.4 12h17.2" transform="rotate(45 12 12)"/>
-          </svg>
-          <span>Brake</span>
+          <span class="disc">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true">
+              <circle cx="12" cy="12" r="9.1"/>
+              <path d="M12 2.9v18.2M2.9 12h18.2" transform="rotate(45 12 12)"/>
+            </svg>
+          </span>
+          <span class="lbl">Brake</span>
         </button>
       </div>
     </div>
