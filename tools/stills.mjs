@@ -14,7 +14,7 @@ const page = await browser.newPage();
 await page.setViewport({ width: 1500, height: 950, deviceScaleFactor: 1 });
 page.on('pageerror', (e) => console.log('[pageerror]', e.message));
 page.on('console', (m) => { if (m.type() === 'error' && !/404/.test(m.text())) console.log('[err]', m.text()); });
-await page.goto('http://127.0.0.1:8791/dist/index.html#studio', { waitUntil: 'networkidle0' });
+await page.goto('http://127.0.0.1:8791/index.html#studio', { waitUntil: 'networkidle0' });
 await new Promise((r) => setTimeout(r, 3500));
 
 const files = await page.evaluate(async () => {

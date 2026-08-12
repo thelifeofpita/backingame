@@ -1,5 +1,7 @@
 # Back in smoothly — playable ad
 
+### ▶ [Play it](https://thelifeofpita.github.io/backingame/) — best on a phone, where you steer by tilting it.
+
 A reversing-camera parking game for PlatanoMelón's *Back in smoothly* campaign.
 You are looking through the tailgate camera, already in reverse. Tilt the phone to
 swing the back of the car into the empty bay before the nineteen seconds run out.
@@ -9,16 +11,17 @@ The poster on the wall is one of the three campaign executions, picked at random
 
 | File | What it is |
 | --- | --- |
-| `dist/index.html` | **The unit.** One self-contained file — artwork, DM Sans and all code are embedded. No network requests at runtime. Open it anywhere, drop it into any ad server. 381 KB. |
-| `dist/artifact.html` | The same page as body content only, for hosts that supply their own document shell. |
+| `index.html` | **The unit.** One self-contained file — artwork, DM Sans and all code are embedded. No network requests at runtime. Open it anywhere, drop it into any ad server. 383 KB. It sits at the repo root so GitHub Pages serves the game rather than this page. |
+| `dist/embed.html` | The same page as body content only, for hosts that supply their own document shell. |
 | `stills/*.png` | Ten hero stills: the floating phone, turning, at ten moments of one demo round. 900 × 1600, transparent background. |
 
-Open `dist/index.html#studio` to make more stills — new seed, new car park, new
-run, every time.
+Add `#studio` to the URL to make more stills — new seed, new car park, new run,
+every time: <https://thelifeofpita.github.io/backingame/#studio>
 
 ## Playing it
 
-- **Phone** — tilt left and right. The yellow guide lines swing with you and show
+- **Phone** — tilt left and right. iOS asks permission for motion the first time;
+  it only offers that over HTTPS, which is why the link above matters. The yellow guide lines swing with you and show
   where the back of the car is going. Hold the red button to brake. If the device
   refuses motion access, it falls back to dragging a finger across the screen.
 - **Desktop** — `←` `→` steer, `space` brakes.
@@ -78,7 +81,7 @@ files carry their own terms — see [NOTICE.md](NOTICE.md).
 ## Building
 
 ```sh
-node build.mjs                 # src/ -> dist/
+node build.mjs                 # src/ -> index.html + dist/embed.html
 node tools/stills.mjs          # renders stills/ (needs a local server on :8791)
 ```
 

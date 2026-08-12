@@ -11,7 +11,7 @@ const flag = (k) => argv.includes('--' + k);
 const all = (k) => argv.reduce((a, v, i) => (v === '--' + k ? [...a, argv[i + 1]] : a), []);
 
 const W = +arg('w', 430), H = +arg('h', 880);
-const URL = arg('url', 'http://127.0.0.1:8791/dist/index.html');
+const URL = arg('url', 'http://127.0.0.1:8791/index.html');
 const OUT = arg('out', 'shots/shot.png');
 const DPR = +arg('dpr', 2);
 

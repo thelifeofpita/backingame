@@ -1,6 +1,8 @@
 /* Bundles src/ into two single files:
-     dist/index.html    — a complete standalone document (open it anywhere)
-     dist/artifact.html — the same page as body content, for publishing
+     index.html      — the unit: a complete standalone document. Lives at the
+                       repo root so GitHub Pages serves the game, not the README.
+     dist/embed.html — the same page as body content only, for hosts that
+                       supply their own document shell.
    No minifier, no dependencies: the point is that what ships is readable. */
 import { readFileSync, writeFileSync, mkdirSync, existsSync, statSync } from 'node:fs';
 import { join, dirname } from 'node:path';
@@ -34,7 +36,7 @@ const bodyContent = `${html}\n<style>\n${css}\n</style>\n<script>\n${js}\n</scri
 
 mkdirSync(join(here, 'dist'), { recursive: true });
 
-writeFileSync(join(here, 'dist', 'index.html'),
+writeFileSync(join(here, 'index.html'),
 `<!doctype html>
 <html lang="en">
 <head>
@@ -47,8 +49,8 @@ ${bodyContent}</body>
 </html>
 `);
 
-writeFileSync(join(here, 'dist', 'artifact.html'), `${head}\n${bodyContent}`);
+writeFileSync(join(here, 'dist', 'embed.html'), `${head}\n${bodyContent}`);
 
-const kb = (p) => (statSync(join(here, 'dist', p)).size / 1024).toFixed(0) + ' KB';
-console.log(`built  dist/index.html    ${kb('index.html')}`);
-console.log(`built  dist/artifact.html ${kb('artifact.html')}`);
+const kb = (p) => (statSync(join(here, p)).size / 1024).toFixed(0) + ' KB';
+console.log(`built  index.html       ${kb('index.html')}`);
+console.log(`built  dist/embed.html  ${kb('dist/embed.html')}`);
