@@ -300,29 +300,60 @@
     // the aisle line along the mouth of the bays
     paintStripe(ctx, cam, g.xMin, g.laneZ0, g.xMax, g.laneZ0, 0.11, `rgba(214,214,206,${0.42})`, true);
 
+    /* --- wheel stops: why nobody parks with their bumper on the wall ---- */
+    for (let k = g.bayMin; k <= g.bayMax; k++) {
+      const cx = W.bayCenterX(k);
+      if (Math.abs(cx - cam.pos.x) > 8.5) continue;
+      const d = dist2(cam, cx, g.stopZ);
+      const fade = 1 - fogAmt(d);
+      if (fade < 0.05) continue;
+      const isTarget = L.target.k === k;
+      drawWheelStop(ctx, cam, cx, g.stopZ, g.bayW * 0.34, isTarget, d);
+      void fade;
+    }
+
     /* --- the target bay: chevrons pointing home ------------------------- */
     const tgt = L.target;
     const live = st && st.phase === 'drive';
     const ok = st && st.inBox && st.aligned;
     const col = ok ? PAL.greenRGB : PAL.yellowRGB;
     const pulse = live ? 0.55 + 0.45 * Math.sin(t * 3.4) : 0.85;
-    // outline
-    const oa = (ok ? 0.85 : 0.42) * (live ? 1 : 0.7);
+    // fade the markings out as the car arrives — the poster is the payoff
+    const close = st ? clamp((st.wallGap - 0.8) / 1.7, 0.12, 1) : 1;
+    const oa = (ok ? 0.72 : 0.34) * (live ? 1 : 0.7) * close;
     paintStripe(ctx, cam, tgt.cx - tgt.halfW, g.kerbZ + 0.05, tgt.cx - tgt.halfW, g.laneZ0, 0.105, rgbaArr(col, oa));
     paintStripe(ctx, cam, tgt.cx + tgt.halfW, g.kerbZ + 0.05, tgt.cx + tgt.halfW, g.laneZ0, 0.105, rgbaArr(col, oa));
     paintStripe(ctx, cam, tgt.cx - tgt.halfW, g.kerbZ + 0.06, tgt.cx + tgt.halfW, g.kerbZ + 0.06, 0.105, rgbaArr(col, oa));
     // chevrons flowing towards the wall — an invitation, not a floodlight,
     // and they bow out once the car is close enough to see for itself
-    const near = st ? clamp((st.wallGap - 0.7) / 1.6, 0, 1) : 1;
+    const near = st ? clamp((st.wallGap - 1.3) / 1.8, 0, 1) : 1;
     for (let i = 0; i < 3; i++) {
       const base = 1.45 + i * 1.0;
       const phase = live ? ((t * 0.9 + i * 0.33) % 1) : 0.5;
-      const a = (0.22 + 0.45 * (1 - Math.abs(phase * 2 - 1))) * pulse * near;
+      const a = (0.14 + 0.30 * (1 - Math.abs(phase * 2 - 1))) * pulse * near;
       if (a < 0.02) continue;
-      chevron(ctx, cam, tgt.cx, base, 0.70, 0.36, rgbaArr(col, a));
+      chevron(ctx, cam, tgt.cx, base, 0.58, 0.30, rgbaArr(col, a));
     }
   }
   function rgbaArr(c, a) { return `rgba(${c[0]},${c[1]},${c[2]},${clamp(a, 0, 1)})`; }
+
+  /* a low concrete kerb the back wheels are meant to meet */
+  function drawWheelStop(ctx, cam, cx, z, halfW, isTarget, d) {
+    const h = 0.13, dep = 0.16;
+    const F = [];
+    pushBox(F, cx, h / 2, z, halfW, h / 2, dep / 2, 0,
+      isTarget ? [150, 148, 132] : [118, 118, 112],
+      isTarget ? [128, 126, 112] : [98, 98, 94], 'stop');
+    drawSolid(ctx, cam, F);
+    if (isTarget) {   // a painted top, so it reads as the thing to aim at
+      C.fillPoly(ctx, cam, [
+        { x: cx - halfW * 0.92, y: h + 0.002, z: z - dep * 0.3 },
+        { x: cx + halfW * 0.92, y: h + 0.002, z: z - dep * 0.3 },
+        { x: cx + halfW * 0.92, y: h + 0.002, z: z + dep * 0.3 },
+        { x: cx - halfW * 0.92, y: h + 0.002, z: z + dep * 0.3 },
+      ], rgbaArr(PAL.yellowRGB, 0.72 * (1 - fogAmt(d))));
+    }
+  }
 
   function paintStripe(ctx, cam, x0, z0, x1, z1, w, style) {
     const dx = x1 - x0, dz = z1 - z0, l = Math.hypot(dx, dz) || 1;
@@ -363,7 +394,87 @@
     return faces;
   }
 
-  function carFaces(car) {
+  /* ========================================================================
+     Cars, built by lofting a cross-section along the length. Six stations and
+     an eight-sided section is enough for a silhouette that reads as a car at
+     any angle: shoulders, a tapering nose, a boot, wheels that sit in arches
+     rather than beside them. Normals are derived from the geometry and turned
+     outwards against the part's own centre, so nothing can end up inside-out.
+     ====================================================================== */
+
+  // r across the body, t up it: a rounded box, flat on the floor
+  const BODY_SECTION = [
+    [-1.00, 0.14], [-0.96, 0.58], [-0.74, 0.94], [-0.34, 1.00],
+    [0.34, 1.00], [0.74, 0.94], [0.96, 0.58], [1.00, 0.14], [0.80, 0.00], [-0.80, 0.00],
+  ];
+  const CABIN_SECTION = [
+    [-1.00, 0.00], [-0.97, 0.62], [-0.66, 1.00], [0.66, 1.00], [0.97, 0.62], [1.00, 0.00],
+  ];
+
+  function loft(F, V, stations, section, opts) {
+    const ring = stations.map((st) =>
+      section.map(([r, t]) => V(st.f, st.y0 + (st.y1 - st.y0) * t, st.hw * r)));
+    // the part's own centre, so outward normals can be resolved without
+    // depending on winding order
+    let cx = 0, cy = 0, cz = 0, n = 0;
+    for (const rg of ring) for (const p of rg) { cx += p.x; cy += p.y; cz += p.z; n++; }
+    cx /= n; cy /= n; cz /= n;
+
+    const push = (pts, col, tag) => {
+      const ax = pts[1].x - pts[0].x, ay = pts[1].y - pts[0].y, az = pts[1].z - pts[0].z;
+      const bx = pts[2].x - pts[0].x, by = pts[2].y - pts[0].y, bz = pts[2].z - pts[0].z;
+      let nx = ay * bz - az * by, ny = az * bx - ax * bz, nz = ax * by - ay * bx;
+      const l = Math.hypot(nx, ny, nz) || 1;
+      nx /= l; ny /= l; nz /= l;
+      let fx = 0, fy = 0, fz = 0;
+      for (const p of pts) { fx += p.x; fy += p.y; fz += p.z; }
+      fx = fx / pts.length - cx; fy = fy / pts.length - cy; fz = fz / pts.length - cz;
+      if (nx * fx + ny * fy + nz * fz < 0) { nx = -nx; ny = -ny; nz = -nz; }
+      F.push({ pts, n: { x: nx, y: ny, z: nz }, col, tag });
+    };
+
+    for (let i = 0; i < ring.length - 1; i++) {
+      for (let j = 0; j < section.length; j++) {
+        const k = (j + 1) % section.length;
+        const quad = [ring[i][j], ring[i][k], ring[i + 1][k], ring[i + 1][j]];
+        // glass wherever the panel stands up on the side of the greenhouse
+        const col = opts.colorFor ? opts.colorFor(quad, i, j) : opts.col;
+        push(quad, col, opts.tag);
+      }
+    }
+    if (opts.caps !== false) {
+      push(ring[0].slice(), opts.capCol || opts.col, opts.tag + '-rear');
+      push(ring[ring.length - 1].slice().reverse(), opts.capCol || opts.col, opts.tag + '-front');
+    }
+    return ring;
+  }
+
+  function ngon(F, V, f, r, sides, radius, width, colSide, colFace, tag) {
+    const pts = [];
+    for (let i = 0; i < sides; i++) {
+      const a = (i / sides) * Math.PI * 2 + Math.PI / sides;
+      pts.push([Math.cos(a) * radius, Math.sin(a) * radius]);
+    }
+    const inner = pts.map(([df, dy]) => V(f + df, radius + dy, r - width / 2));
+    const outer = pts.map(([df, dy]) => V(f + df, radius + dy, r + width / 2));
+    const sign = Math.sign(r) || 1;
+    for (let i = 0; i < sides; i++) {
+      const j = (i + 1) % sides;
+      const nx = pts[i][0] + pts[j][0], ny = pts[i][1] + pts[j][1];
+      const l = Math.hypot(nx, ny) || 1;
+      const wn = V(nx / l, ny / l, 0), o = V(0, 0, 0);
+      F.push({
+        pts: [inner[i], inner[j], outer[j], outer[i]],
+        n: { x: wn.x - o.x, y: wn.y - o.y, z: wn.z - o.z },
+        col: colSide, tag,
+      });
+    }
+    const face = sign > 0 ? outer : inner.slice().reverse();
+    const nv = V(0, 0, sign), o2 = V(0, 0, 0);
+    F.push({ pts: face, n: { x: nv.x - o2.x, y: nv.y - o2.y, z: nv.z - o2.z }, col: colFace, tag: tag + '-hub' });
+  }
+
+  function carFaces(car, simple) {
     const F = [];
     const P = car.paint;
     const body = P.body, roof = P.roof;
@@ -371,60 +482,79 @@
     const V = (f, u, r) => ({ x: car.x + s * f + c * r, y: u, z: car.z + c * f - s * r });
     const back = -W.CAR.rearOverhang, front = W.CAR.wheelbase + W.CAR.frontOverhang;
     const hw = W.CAR.wid / 2;
-    const sillY = 0.34, beltY = car.wagon ? 1.06 : 1.0, roofY = car.wagon ? 1.56 : 1.44;
+    const wagon = car.wagon;
+    const beltY = wagon ? 1.10 : 1.04;
+    const roofY = wagon ? 1.60 : 1.47;
+    const glass = [Math.max(20, roof[0] * 0.34), Math.max(23, roof[1] * 0.38), Math.max(28, roof[2] * 0.44)];
+    const dark = [body[0] * 0.42, body[1] * 0.42, body[2] * 0.42];
 
-    // lower body
-    pushBox(F, car.x, (sillY + beltY) / 2, car.z, hw, (beltY - sillY) / 2,
-      (front - back) / 2, car.heading, body, body, 'body');
-    // shift the box to sit between back..front
-    const off = (front + back) / 2;
-    for (const f of F) for (const p of f.pts) { p.x += s * off; p.z += c * off; }
-
-    // greenhouse — a tapered box, drawn as explicit quads so it can rake
-    const cabBack = car.wagon ? back + 0.55 : back + 0.85;
-    const cabFront = car.wagon ? front - 0.95 : front - 1.05;
-    const topBack = cabBack + (car.wagon ? 0.10 : 0.30), topFront = cabFront - 0.42;
-    const gw = hw - 0.10, gwt = hw - 0.24;
-    const glass = [Math.max(18, roof[0] * 0.42), Math.max(20, roof[1] * 0.46), Math.max(24, roof[2] * 0.5)];
-    const q = (a, b, cc, d, col, n, tag) => F.push({ pts: [a, b, cc, d], n, col, tag });
-    const bl = V(cabBack, beltY, -gw), br = V(cabBack, beltY, gw);
-    const fl = V(cabFront, beltY, -gw), fr = V(cabFront, beltY, gw);
-    const tbl = V(topBack, roofY, -gwt), tbr = V(topBack, roofY, gwt);
-    const tfl = V(topFront, roofY, -gwt), tfr = V(topFront, roofY, gwt);
-    q(tbl, tbr, tfr, tfl, roof, { x: 0, y: 1, z: 0 }, 'roof');
-    q(bl, br, tbr, tbl, glass, { x: -s, y: 0.25, z: -c }, 'rearglass');   // rear screen
-    q(fr, fl, tfl, tfr, glass, { x: s, y: 0.25, z: c }, 'windscreen');
-    q(br, fr, tfr, tbr, glass, { x: c, y: 0.1, z: -s }, 'sideglass');
-    q(fl, bl, tbl, tfl, glass, { x: -c, y: 0.1, z: s }, 'sideglass');
-
-    // wheels
-    const wr = 0.30;
-    for (const [wf, wrgt] of [[0, -hw + 0.03], [0, hw - 0.03], [W.CAR.wheelbase, -hw + 0.03], [W.CAR.wheelbase, hw - 0.03]]) {
-      pushBoxAt(F, V(wf, wr, wrgt), 0.09, wr, wr, car.heading, [26, 26, 28], [18, 18, 20], 'wheel');
+    if (simple) {
+      // distant cars: a shape, not a car
+      pushBox(F, car.x + s * (front + back) / 2, (0.26 + beltY) / 2, car.z + c * (front + back) / 2,
+        hw * 0.98, (beltY - 0.26) / 2, (front - back) / 2, car.heading, body, body, 'body');
+      pushBox(F, car.x + s * ((front + back) / 2 - 0.15), (beltY + roofY) / 2, car.z + c * ((front + back) / 2 - 0.15),
+        hw * 0.8, (roofY - beltY) / 2, (front - back) * 0.28, car.heading, roof, glass, 'cabin');
+      return F;
     }
 
-    // rear lights + plate, facing away from the nose
-    const lampY = 0.86;
-    const rearZ = back - 0.005;
-    const lamp = (rr) => {
-      const a = V(rearZ, lampY - 0.13, rr - 0.20), b = V(rearZ, lampY - 0.13, rr + 0.20);
-      const cc = V(rearZ, lampY + 0.13, rr + 0.20), d = V(rearZ, lampY + 0.13, rr - 0.20);
-      F.push({ pts: [a, b, cc, d], n: { x: -s, y: 0, z: -c }, col: [128, 30, 26], tag: 'lamp', emissive: 0.35 });
+    /* --- body ---------------------------------------------------------- */
+    const bumper = 0.05;
+    loft(F, V, [
+      { f: back, hw: hw * 0.90, y0: 0.30, y1: 1.00 },
+      { f: back + 0.30, hw: hw * 0.995, y0: 0.245, y1: beltY },
+      { f: 0.55, hw: hw, y0: 0.235, y1: beltY + 0.02 },
+      { f: W.CAR.wheelbase - 0.15, hw: hw, y0: 0.235, y1: beltY + 0.01 },
+      { f: front - 0.34, hw: hw * 0.985, y0: 0.26, y1: beltY - 0.05 },
+      { f: front, hw: hw * 0.86, y0: 0.325, y1: 0.95 },
+    ], BODY_SECTION, {
+      tag: 'body',
+      colorFor: (q) => (q[0].y < 0.34 && q[1].y < 0.34 ? dark : body),   // sills and bumpers
+      col: body, capCol: body,
+    });
+    void bumper;
+
+    /* --- greenhouse ---------------------------------------------------- */
+    const cabBack = wagon ? back + 0.62 : back + 0.98;
+    const cabFront = wagon ? front - 1.02 : front - 1.12;
+    loft(F, V, [
+      { f: cabBack, hw: hw * 0.86, y0: beltY - 0.03, y1: wagon ? roofY - 0.06 : beltY + 0.30 },
+      { f: cabBack + (wagon ? 0.18 : 0.46), hw: hw * 0.90, y0: beltY - 0.03, y1: roofY },
+      { f: cabFront - 0.58, hw: hw * 0.90, y0: beltY - 0.03, y1: roofY },
+      { f: cabFront, hw: hw * 0.78, y0: beltY - 0.03, y1: beltY + 0.20 },
+    ], CABIN_SECTION, {
+      tag: 'cabin',
+      // panels that stand up are windows; panels that lie down are roof
+      colorFor: (q) => {
+        const dy = Math.abs((q[0].y + q[1].y) / 2 - (q[2].y + q[3].y) / 2);
+        const dh = Math.hypot((q[0].x + q[1].x) / 2 - (q[2].x + q[3].x) / 2,
+                              (q[0].z + q[1].z) / 2 - (q[2].z + q[3].z) / 2);
+        return dy > dh * 0.55 ? glass : roof;   // upright panels are windows
+      },
+      col: glass, capCol: glass,
+    });
+
+    /* --- wheels, sitting in the arches --------------------------------- */
+    const wr = 0.325, tyre = [26, 26, 28], rim = [92, 95, 99];
+    for (const wf of [0.02, W.CAR.wheelbase]) {
+      for (const sgn of [-1, 1]) {
+        ngon(F, V, wf, sgn * (hw - 0.075), 8, wr, 0.21, tyre, rim, 'wheel');
+      }
+    }
+
+    /* --- lights and plates --------------------------------------------- */
+    const q4 = (fz, y0, y1, r0, r1, col, nf, tag, em) => {
+      F.push({
+        pts: [V(fz, y0, r0), V(fz, y0, r1), V(fz, y1, r1), V(fz, y1, r0)],
+        n: { x: s * nf, y: 0, z: c * nf }, col, tag, emissive: em,
+      });
     };
-    lamp(-hw + 0.34); lamp(hw - 0.34);
-    const pa = V(rearZ, 0.62, -0.24), pb = V(rearZ, 0.62, 0.24), pc = V(rearZ, 0.76, 0.24), pd = V(rearZ, 0.76, -0.24);
-    F.push({ pts: [pa, pb, pc, pd], n: { x: -s, y: 0, z: -c }, col: [188, 190, 184], tag: 'plate', emissive: 0.2 });
-    // headlights at the nose
-    const hl = (rr) => {
-      const y0 = 0.72, y1 = 0.92, fz = front + 0.005;
-      const a = V(fz, y0, rr - 0.22), b = V(fz, y0, rr + 0.22), cc = V(fz, y1, rr + 0.22), d = V(fz, y1, rr - 0.22);
-      F.push({ pts: [a, b, cc, d], n: { x: s, y: 0, z: c }, col: [150, 152, 150], tag: 'head', emissive: 0.28 });
-    };
-    hl(-hw + 0.36); hl(hw - 0.36);
+    const rz = back - 0.012, fz = front + 0.012;
+    q4(rz, 0.74, 0.87, -hw + 0.16, -hw + 0.46, [146, 36, 30], -1, 'lamp', 0.30);
+    q4(rz, 0.74, 0.87, hw - 0.46, hw - 0.16, [146, 36, 30], -1, 'lamp', 0.30);
+    q4(rz, 0.50, 0.61, -0.22, 0.22, [196, 198, 192], -1, 'plate', 0.22);
+    q4(fz, 0.70, 0.84, -hw + 0.18, -hw + 0.48, [172, 174, 168], 1, 'head', 0.26);
+    q4(fz, 0.70, 0.84, hw - 0.48, hw - 0.18, [172, 174, 168], 1, 'head', 0.26);
     return F;
-  }
-  function pushBoxAt(F, ctr, hx, hy, hz, heading, colTop, colSide, tag) {
-    pushBox(F, ctr.x, ctr.y, ctr.z, hx, hy, hz, heading, colTop, colSide, tag);
   }
 
   function pillarFaces(p) {
@@ -604,7 +734,13 @@
     // solids, far to near
     const solids = [];
     for (const p of L.pillars) solids.push({ d: dist2(cam, p.x, p.z), draw: () => { contactShadow(ctx, cam, p.x, p.z, 0, p.d * 0.6, p.w * 0.6); drawSolid(ctx, cam, pillarFaces(p)); } });
-    for (const c of L.cars) solids.push({ d: dist2(cam, c.x, c.z), draw: () => { contactShadow(ctx, cam, c.x, c.z, c.heading, W.CAR.len * 0.46, W.CAR.wid * 0.52); drawSolid(ctx, cam, carFaces(c)); } });
+    for (const c of L.cars) {
+      const d = dist2(cam, c.x, c.z);
+      solids.push({ d, draw: () => {
+        contactShadow(ctx, cam, c.x, c.z, c.heading, W.CAR.len * 0.46, W.CAR.wid * 0.52);
+        drawSolid(ctx, cam, carFaces(c, d > 11));
+      } });
+    }
     solids.sort((a, b) => b.d - a.d);
     for (const s of solids) s.draw();
 

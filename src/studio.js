@@ -387,23 +387,10 @@
     renderScreen(t) {
       const st = this.state, cam = this.cam;
       const reveal = this.phase !== 'play';
-      if (!reveal) {
-        D.placeCamera(cam, st, this.shake);
-      } else {
-        if (!this.camPose) {
-          D.placeCamera(cam, st, null);
-          this.camPose = { x: cam.pos.x, y: cam.pos.y, z: cam.pos.z, yaw: cam.yaw, pitch: cam.pitch };
-        }
-        const p = this.level.poster;
-        const k = smoothstep(clamp((this.revealT - 0.42) / 1.15, 0, 1));
-        const f = this.camPose;
-        cam.pos.x = lerp(f.x, p.cx, k);
-        cam.pos.y = lerp(f.y, p.cy - 0.04, k);
-        cam.pos.z = lerp(f.z, 1.02, k);
-        cam.yaw = lerp(f.yaw, f.yaw + C.norm(Math.PI - f.yaw), k);
-        cam.pitch = lerp(f.pitch, 0.02, k);
-        cam.pos.x += this.shake.x; cam.pos.y += this.shake.y;
-        cam.roll = this.shake.r; cam.pitch += this.shake.p;
+      // the camera stays on the car: a good park puts the poster in frame by itself
+      D.placeCamera(cam, st, this.shake);
+      if (reveal) {
+        cam.pitch += 0.045 * smoothstep(clamp((this.revealT - 0.15) / 1.0, 0, 1));
         cam.update();
       }
       D.renderScene(this.scctx, cam, st, t, { guides: !reveal, bumper: !reveal, subdiv: reveal ? 9 : 6 });
@@ -534,12 +521,12 @@
       this.backdrop = 'none'; this.caption = false;
 
       this.resetRun();
-      /* Weighted so the manoeuvre gets most of the frames and the poster gets
-         the last word: seven moments of driving, three of the reveal. */
-      const nRun = Math.max(3, Math.round(n * 0.7)), nEnd = n - nRun;
+      /* Weighted towards the manoeuvre. The camera holds still once the car is
+         parked, so more than a couple of resting frames would just repeat. */
+      const nEnd = n >= 8 ? 2 : 1, nRun = n - nEnd;
       const marks = [];
-      for (let i = 0; i < nRun; i++) marks.push(this.runTime * (0.08 + 0.78 * (i / (nRun - 1))));
-      for (let i = 0; i < nEnd; i++) marks.push(this.runTime + 0.85 + i * (2.0 / Math.max(1, nEnd - 1)));
+      for (let i = 0; i < nRun; i++) marks.push(this.runTime * (0.06 + 0.86 * (i / (nRun - 1))));
+      for (let i = 0; i < nEnd; i++) marks.push(this.runTime + 0.7 + i * 1.4);
 
       let t = 0, mi = 0;
       const files = [];

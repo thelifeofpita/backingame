@@ -19,8 +19,10 @@
     timeLimit: 19.0,      // s — a round always fits inside twenty seconds
     holdToPark: 0.42,     // s stationary in the box before it counts
     stopSpeed: 0.10,
-    wallCrash: 0.085,     // rear bumper closer than this to the wall = kiss
-    idealGap: 0.34,       // the good-parking distance to the wall
+    wallCrash: 0.50,      // past the wheel stop is a crunch
+    idealGap: 1.10,       // resting on the wheel stop — and where the poster frames
+    gapMin: 0.72,
+    gapMax: 1.95,
   };
 
   /* ---- geometry helpers -------------------------------------------------- */
@@ -213,7 +215,7 @@
     /* --- parked? ------------------------------------------------------- */
     const stopped = Math.abs(c.v) < TUNE.stopSpeed;
     const good = s.inBox && stopped && Math.abs(s.headingErr) < 0.14 &&
-                 s.wallGap > TUNE.wallCrash + 0.03 && s.wallGap < 1.05;
+                 s.wallGap > TUNE.gapMin && s.wallGap < TUNE.gapMax;
     if (good) {
       s.parkHold += dt;
       if (s.parkHold >= TUNE.holdToPark) {
@@ -242,7 +244,7 @@
     const t = s.level.target;
     const centring = 1 - clamp(Math.abs(s.lateralErr) / (t.halfW - W.CAR.wid * 0.5 + 0.02), 0, 1);
     const square = 1 - clamp(Math.abs(s.headingErr) / 0.14, 0, 1);
-    const gap = 1 - clamp(Math.abs(s.wallGap - TUNE.idealGap) / 0.6, 0, 1);
+    const gap = 1 - clamp(Math.abs(s.wallGap - TUNE.idealGap) / 0.75, 0, 1);
     // wheel movement per metre travelled: fewer sawing motions = smoother
     const effort = clamp(s.steerWork / Math.max(0.8, s.travelled) / 1.5, 0, 1);
     const flow = 1 - effort;
@@ -287,7 +289,7 @@
        heading that is too small needs a negative wheel angle to grow it. */
     const e = c.x - t.cx;
     // the lookahead shortens as the wall closes, so the last metre is straight
-    const look = clamp((s.wallGap - 0.35) * drv.look, 0.85, 2.6);
+    const look = clamp((s.wallGap - 1.05) * drv.look, 0.85, 2.6);
     const hDes = clamp(Math.atan2(drv.kE * e, look), -0.7, 0.7);
     const psi = norm(c.h - hDes);
     let delta = drv.kPsi * psi;
@@ -304,11 +306,11 @@
 
     // slow down for the last stretch, then stop in the right place
     let brake = 0;
-    const stopAt = TUNE.idealGap + drv.rng.range(-0.03, 0.12);
-    if (s.wallGap < 1.6) brake = clamp((1.6 - s.wallGap) / 1.2, 0, 1) * 0.5;
+    const stopAt = TUNE.idealGap + drv.rng.range(-0.12, 0.30);
+    if (s.wallGap < 2.4) brake = clamp((2.4 - s.wallGap) / 1.4, 0, 1) * 0.5;
     // only commit to stopping once the car is genuinely in the box
-    if (s.wallGap < stopAt + 0.26 && s.inBox) brake = 1;
-    else if (s.wallGap < stopAt + 0.12) brake = 0.9;   // out of the box: crawl
+    if (s.wallGap < stopAt + 0.30 && s.inBox) brake = 1;
+    else if (s.wallGap < TUNE.gapMin + 0.15) brake = 0.9;   // out of the box: crawl
     if (drv.hesitate && s.t > drv.hesitate.at && s.t < drv.hesitate.at + drv.hesitate.dur) brake = 1;
 
     drv.lastSteer = delayed;

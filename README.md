@@ -25,8 +25,9 @@ every time: <https://thelifeofpita.github.io/backingame/#studio>
   where the back of the car is going. Hold the red button to brake. If the device
   refuses motion access, it falls back to dragging a finger across the screen.
 - **Desktop** — `←` `→` steer, `space` brakes.
-- A round is 19 seconds. Park square, centred and close to the wall without
-  touching anything. Win or lose, the camera goes and reads the poster.
+- A round is 19 seconds. Park square, centred, up to the wheel stop, without
+  touching anything. Do it properly and the poster is already filling the display
+  when you stop — no reveal, no cutaway.
 
 ## Art direction, and why each part is there
 
@@ -48,9 +49,20 @@ Everything on screen is either a reversing camera, a car park, or PlatanoMelón.
   get photographing a dashboard, which is exactly what the mockups are.
 - **Reverse chevrons** mark the target bay on the floor and reappear as the tilt
   indicator in the how-to diagram.
-- **The payoff is a camera move.** On the last frame of a round the lens leaves the
-  car and reads the poster on the wall, and the cheap-camera treatment eases off
-  as it goes, so the artwork arrives as artwork.
+- **The poster is framed by where you park, not by a camera trick.** That is the
+  campaign: you see the ad *through the reversing camera*, in the ordinary course
+  of backing in. Every bay has a concrete wheel stop about a metre off the wall —
+  the reason nobody parks with their bumper against it — and the poster is sized
+  and hung so that a car resting on that stop has it square in the middle of the
+  display. Park well and it lands perfectly. Park crooked and it sits crooked.
+  The camera never leaves the car.
+- **The floor markings get out of the way.** Bay outline and chevrons fade as the
+  car closes on the stop, so the last second belongs to the poster.
+- **Cars are lofted, not boxed.** Each one is a cross-section swept along six
+  stations — shoulders, tapering nose, boot — with a separate greenhouse whose
+  upright panels become glass and flat ones roof. Normals are derived from the
+  geometry and forced outwards against the part's own centre, so no panel can
+  render inside-out. Distant cars drop to a two-box stand-in.
 - **Type** is DM Sans throughout — tight and large for the brand's voice, tracked
   out with tabular figures for the car's readouts.
 - **Instruction is one diagram and one line.** The diagram is a live miniature of

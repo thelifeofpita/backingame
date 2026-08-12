@@ -20,6 +20,7 @@
     bayW: 2.62, bayD: 5.05,
     wallZ: 0,            // poster wall
     kerbZ: 0.22,         // wheel stop
+    stopZ: 1.02,         // the wheel stop, and where a parked car comes to rest
     laneZ0: 5.05,        // bay mouth
     laneZ1: 11.6,        // far side of the lane
     ceilY: 2.86,
@@ -152,11 +153,11 @@
 
     /* --- the poster ------------------------------------------------------ */
     const adIndex = rng.int(0, (NS.ads ? NS.ads.length : 3) - 1);
-    const posterH = rng.range(1.62, 1.86);
+    const posterH = rng.range(1.22, 1.36);
     const poster = {
       index: adIndex,
-      cx: targetX + rng.range(-0.16, 0.16),
-      cy: rng.range(1.60, 1.74),
+      cx: targetX + rng.range(-0.06, 0.06),
+      cy: rng.range(1.00, 1.10),
       h: posterH,
       rot: rng.range(-0.075, 0.075),
       curl: rng.range(0.004, 0.02), // the sticker lifts a little off the concrete

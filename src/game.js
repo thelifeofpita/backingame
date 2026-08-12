@@ -14,15 +14,15 @@
 
   const COPY = {
     win: [
-      { h: 'Not a scratch on it.', s: 'Straight in, first go. Turns out it is all about the approach.' },
-      { h: 'That went in nicely.', s: 'No shunting, no sawing at the wheel. Just smooth.' },
-      { h: 'Textbook.', s: 'Slow, straight and well lubricated. The car too.' },
+      { h: 'Backed in smoothly.', s: 'Straight in, first go, nothing touched. Some things really are easier with the right stuff.' },
+      { h: 'That is how you back in smoothly.', s: 'Slow, straight and well lubricated. The car too.' },
+      { h: 'Smooth. All the way in.', s: 'No shunting, no sawing at the wheel. Our lubricant does the same job.' },
     ],
-    wall: { h: 'Straight into the wall.', s: 'A bit of relaxant lubricant and that would have gone somewhere better.' },
-    car: { h: 'You clipped the neighbour.', s: 'Take it slower next time. Take some lubricant too.' },
-    pillar: { h: 'Found the pillar.', s: 'Tight spots are easier when everything is a little more slippery.' },
-    stray: { h: 'That is not the bay.', s: 'Backing in works better with guidance. And with lubricant.' },
-    time: { h: 'Still circling.', s: 'All that hesitation. Relax — our lubricant is rather good at that.' },
+    wall: { h: 'That is not backing in smoothly.', s: 'You went straight into the wall. A relaxant lubricant would have taken the edge off.' },
+    car: { h: 'Nobody backs in smoothly like that.', s: 'You clipped the neighbour. Take it slower — and take some lubricant.' },
+    pillar: { h: 'The pillar says you did not back in smoothly.', s: 'Tight spots go easier when everything is a little more slippery.' },
+    stray: { h: 'Backing in smoothly means going in.', s: 'That was never the bay. Ours finds its way rather better.' },
+    time: { h: 'Too slow to back in smoothly.', s: 'All that hesitating. Relax — our lubricant is rather good at that.' },
   };
 
   const STORE = {
@@ -274,7 +274,7 @@
       const copy = won ? st.rng.pick(COPY.win) : (COPY[st.reason] || COPY.time);
       const ad = D.ads[this.level.poster.index % D.ads.length];
 
-      e.resultLabel.textContent = won ? 'Parked' : 'Contact';
+      e.resultLabel.textContent = won ? 'Smooth' : 'Not smooth';
       e.resultDot.style.background = won ? 'var(--cam-green)' : 'var(--cam-red)';
       e.resultLabel.style.color = won ? 'var(--cam-green)' : 'var(--cam-red)';
       e.resultTitle.textContent = copy.h;
@@ -345,7 +345,7 @@
         if (st.phase !== 'drive') this.endRound();
       } else if (this.phase === 'reveal') {
         this.revealT += dt;
-        if (this.revealT > 1.65) this.showResult();
+        if (this.revealT > 1.15) this.showResult();
       }
       // decay the knocks and flashes
       this.flash[3] = Math.max(0, this.flash[3] - dt * (this.phase === 'reveal' ? 1.6 : 2.6));
@@ -367,7 +367,7 @@
       if (!st.inBox && Math.abs(st.lateralErr) > 0.85) { s = st.lateralErr > 0 ? 'Bay is right' : 'Bay is left'; }
       else if (!st.inBox) s = 'Line it up';
       else if (Math.abs(st.headingErr) > 0.13) s = 'Straighten up';
-      else if (st.wallGap > 0.95) { s = 'Keep coming'; tone = 'ok'; }
+      else if (st.wallGap > S.TUNE.gapMax - 0.15) { s = 'Keep coming'; tone = 'ok'; }
       else { s = 'Brake now'; tone = 'urgent'; }
       this.status = s;
       if (s !== this.lastStatus) {
@@ -411,25 +411,13 @@
       if (!st) return;
       const reveal = this.phase === 'reveal' || this.phase === 'result';
 
-      if (!reveal) {
-        D.placeCamera(cam, st, this.shake);
-      } else {
-        // The camera leaves the car and goes to read the poster.
-        if (!this.camPose) {
-          D.placeCamera(cam, st, null);
-          this.camPose = { x: cam.pos.x, y: cam.pos.y, z: cam.pos.z, yaw: cam.yaw, pitch: cam.pitch };
-        }
-        const p = this.level.poster;
-        const k = smoothstep(clamp((this.revealT - 0.42) / 1.15, 0, 1));
-        const from = this.camPose;
-        const tgtYaw = Math.PI;
-        cam.pos.x = lerp(from.x, p.cx, k);
-        cam.pos.y = lerp(from.y, p.cy - 0.04, k);
-        cam.pos.z = lerp(from.z, 1.02, k);
-        cam.yaw = lerp(from.yaw, from.yaw + C.norm(tgtYaw - from.yaw), k);
-        cam.pitch = lerp(from.pitch, 0.02, k);
-        cam.pos.x += this.shake.x; cam.pos.y += this.shake.y;
-        cam.roll = this.shake.r; cam.pitch += this.shake.p;
+      /* The camera never leaves the car. If you backed in properly the poster
+         is already square in the frame — that is the whole campaign — so the
+         end of a round only steadies the shot and lets the lens settle. */
+      D.placeCamera(cam, st, this.shake);
+      if (reveal) {
+        const k = smoothstep(clamp((this.revealT - 0.15) / 1.0, 0, 1));
+        cam.pitch += 0.045 * k;          // the nose lifts as the brakes release
         cam.update();
       }
 
